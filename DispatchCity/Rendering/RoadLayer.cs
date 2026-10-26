@@ -1,0 +1,122 @@
+﻿using System.Numerics;
+using DispatchCity.Core;
+using OpenTK.Graphics.OpenGL4;
+
+namespace DispatchCity.Rendering;
+
+public class RoadLayer
+{
+    private const int CircleSegments = 10;
+
+    private int _vao;
+    private int _vbo;
+    private int _vertexCount;
+
+    public void Load(CityGraph graph)
+    {
+        var data = new List<float>();
+
+        // Redosled crtanja: ono što je kasnije, nalazi se preko prethodnog.
+        AddRoadsOfType(graph, RoadType.Local, data);
+        AddRoadsOfType(graph, RoadType.Main, data);
+        AddRoadsOfType(graph, RoadType.Avenue, data);
+
+        float[] array = data.ToArray();
+        _vertexCount = array.Length / 5;   // svaki vrh ima x, y, r, g, b
+
+        _vao = GL.GenVertexArray();
+        _vbo = GL.GenBuffer();
+
+        GL.BindVertexArray(_vao);
+        GL.BindBuffer(BufferTarget.ArrayBuffer, _vbo);
+        GL.BufferData(BufferTarget.ArrayBuffer, array.Length * sizeof(float), array, BufferUsageHint.StaticDraw);
+
+        int stride = 5 * sizeof(float);
+        GL.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, stride, 0);
+        GL.EnableVertexAttribArray(0);
+        GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, false, stride, 2 * sizeof(float));
+        GL.EnableVertexAttribArray(1);
+    }
+
+    public void Render()
+    {
+        GL.BindVertexArray(_vao);
+        GL.DrawArrays(PrimitiveType.Triangles, 0, _vertexCount);
+    }
+
+    private static float WidthOf(RoadType type)
+    {
+        switch (type)
+        {
+            case RoadType.Avenue:
+                return 12f;
+            case RoadType.Main:
+                return 8f;
+            default:
+                return 5f;
+        }
+    }
+
+    private void AddRoadsOfType(CityGraph graph, RoadType type, List<float> data)
+    {
+        Vector3 color = Palette.RoadColor(type);
+        float width = WidthOf(type);
+
+        foreach (Edge edge in graph.Edges)
+        {
+            // Svaka ulica postoji u dva smera, crtamo je samo jednom.
+            if (edge.Type != type || edge.From.Id > edge.To.Id)
+            {
+                continue;
+            }
+
+            AddQuad(edge.From.Position, edge.To.Position, width, color, data);
+            AddCircle(edge.From.Position, width / 2f, color, data);
+            AddCircle(edge.To.Position, width / 2f, color, data);
+        }
+    }
+
+    private void AddQuad(Vector2 from, Vector2 to, float width, Vector3 color, List<float> data)
+    {
+        Vector2 direction = Vector2.Normalize(to - from);
+        Vector2 normal = new Vector2(-direction.Y, direction.X) * (width / 2f);
+
+        Vector2 a = from + normal;
+        Vector2 b = from - normal;
+        Vector2 c = to - normal;
+        Vector2 d = to + normal;
+
+        AddVertex(a, color, data);
+        AddVertex(b, color, data);
+        AddVertex(c, color, data);
+
+        AddVertex(a, color, data);
+        AddVertex(c, color, data);
+        AddVertex(d, color, data);
+    }
+
+    private void AddCircle(Vector2 center, float radius, Vector3 color, List<float> data)
+    {
+        for (int i = 0; i < CircleSegments; i++)
+        {
+            float angle1 = (float)(i * 2.0 * Math.PI / CircleSegments);
+            float angle2 = (float)((i + 1) * 2.0 * Math.PI / CircleSegments);
+
+            Vector2 p1 = center + new Vector2(MathF.Cos(angle1), MathF.Sin(angle1)) * radius;
+            Vector2 p2 = center + new Vector2(MathF.Cos(angle2), MathF.Sin(angle2)) * radius;
+
+            AddVertex(center, color, data);
+            AddVertex(p1, color, data);
+            AddVertex(p2, color, data);
+        }
+    }
+
+    private void AddVertex(Vector2 position, Vector3 color, List<float> data)
+    {
+        data.Add(position.X);
+        data.Add(position.Y);
+        data.Add(color.X);
+        data.Add(color.Y);
+        data.Add(color.Z);
+    }
+}

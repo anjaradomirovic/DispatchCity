@@ -4,9 +4,9 @@ public class Edge
 {
     public Node From { get; }
     public Node To { get; }
-    public RoadType Type { get; }
+    public RoadType Type { get; set; }
     public float Length { get; }
-    public float SpeedLimit { get; }
+    public float SpeedLimit { get; set; }
 
     public bool IsClosed { get; set; }
     public float Congestion { get; set; }   // 0 = prazno, 1 = zagušeno
