@@ -2,6 +2,7 @@
 using DispatchCity.Config;
 using DispatchCity.Core;
 using DispatchCity.Generation;
+using DispatchCity.Pathfinding;
 using DispatchCity.Simulation;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
@@ -50,8 +51,11 @@ nativeSettings.Title = "Dispatch City";
 nativeSettings.APIVersion = new Version(3, 3);
 nativeSettings.Profile = ContextProfile.Core;
 
-using (var game = new Game(GameWindowSettings.Default, nativeSettings, graph, hospital,
-                           config.WorldWidth, config.WorldHeight))
+var pathfinder = new AStarPathfinder(graph.MaxSpeed());
+var world = new GameWorld(config, graph, hospital, pathfinder);
+world.AddAmbulance();
+
+using (var game = new Game(GameWindowSettings.Default, nativeSettings, world))
 {
     game.Run();
 }

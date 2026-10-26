@@ -1,4 +1,5 @@
-﻿using DispatchCity.Core;
+﻿using DispatchCity.Config;
+using DispatchCity.Core;
 using DispatchCity.Pathfinding;
 
 namespace DispatchCity.Generation;
@@ -7,16 +8,15 @@ namespace DispatchCity.Generation;
 // Ideja: bulevar je najbrži put kroz ceo grad, pa se pravi traženjem puteva.
 public class RoadClassifier
 {
-    private const float AvenueSpeed = 20f;
-    private const float MainSpeed = 13f;
-
     private readonly CityGraph _graph;
+    private readonly WorldMetrics _metrics;   // brzine ulica su razmeri jedinice mere
     private readonly Random _random;
     private readonly DijkstraPathfinder _pathfinder = new DijkstraPathfinder();
 
-    public RoadClassifier(CityGraph graph, int seed)
+    public RoadClassifier(CityGraph graph, int seed, WorldMetrics metrics)
     {
         _graph = graph;
+        _metrics = metrics;
         _random = new Random(seed + 2);
     }
 
@@ -41,8 +41,8 @@ public class RoadClassifier
             if (node.Position.Y > bottom.Position.Y) { bottom = node; }
         }
 
-        Upgrade(_pathfinder.FindPath(left, right), RoadType.Avenue, AvenueSpeed);
-        Upgrade(_pathfinder.FindPath(top, bottom), RoadType.Avenue, AvenueSpeed);
+        Upgrade(_pathfinder.FindPath(left, right), RoadType.Avenue);
+        Upgrade(_pathfinder.FindPath(top, bottom), RoadType.Avenue);
 
         // Glavne ulice: nekoliko puteva između slučajnih raskrsnica.
         // Pošto su bulevari brži, glavne ulice se prirodno hvataju za njih.
@@ -52,12 +52,12 @@ public class RoadClassifier
             Node b = _graph.Nodes[_random.Next(_graph.Nodes.Count)];
             if (a != b)
             {
-                Upgrade(_pathfinder.FindPath(a, b), RoadType.Main, MainSpeed);
+                Upgrade(_pathfinder.FindPath(a, b), RoadType.Main);
             }
         }
     }
 
-    private void Upgrade(IReadOnlyList<Edge>? path, RoadType type, float speed)
+    private void Upgrade(IReadOnlyList<Edge>? path, RoadType type)
     {
         if (path == null)
         {
@@ -72,20 +72,20 @@ public class RoadClassifier
                 continue;
             }
 
-            SetType(edge, type, speed);
+            SetType(edge, type);
 
             Edge? reverse = FindReverse(edge);
             if (reverse != null)
             {
-                SetType(reverse, type, speed);
+                SetType(reverse, type);
             }
         }
     }
 
-    private void SetType(Edge edge, RoadType type, float speed)
+    private void SetType(Edge edge, RoadType type)
     {
         edge.Type = type;
-        edge.SpeedLimit = speed;
+        edge.SpeedLimit = _metrics.SpeedOf(type);
     }
 
     // Ulica u suprotnom smeru (ista dva čvora, obrnuto).

@@ -1,91 +1,75 @@
-﻿using DispatchCity.Core;
-using DispatchCity.Rendering;
+﻿using DispatchCity.Rendering;
 using DispatchCity.Simulation;
-using OpenTK.Graphics.OpenGL4;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
+using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace DispatchCity;
 
+// Prozor: spaja unos, CPU (GameWorld) i GPU (Renderer). Sama ne crta i ne računa pravila igre.
 public class Game : GameWindow
 {
-    private const string VertexSource =
-    "#version 330 core\n" +
-    "layout(location = 0) in vec2 aPos;\n" +
-    "layout(location = 1) in vec3 aColor;\n" +
-    "uniform vec2 uWorldSize;\n" +
-    "out vec3 vColor;\n" +
-    "void main()\n" +
-    "{\n" +
-    "    vec2 n = aPos / uWorldSize;\n" +
-    "    gl_Position = vec4(n.x * 2.0 - 1.0, 1.0 - n.y * 2.0, 0.0, 1.0);\n" +
-    "    vColor = aColor;\n" +
-    "}\n";
+    private readonly GameWorld _world;
+    private Renderer? _renderer;
 
-    private const string FragmentSource =
-        "#version 330 core\n" +
-        "in vec3 vColor;\n" +
-        "out vec4 FragColor;\n" +
-        "void main()\n" +
-        "{\n" +
-        "    FragColor = vec4(vColor, 1.0);\n" +
-        "}\n";
-    private readonly CityGraph _graph;
-    private readonly Hospital _hospital;
-    private readonly float _worldWidth;
-    private readonly float _worldHeight;
-
-    private Shader? _shader;
-    private RoadLayer? _roadLayer;
-    private MarkerLayer? _markerLayer;
-
-    public Game(GameWindowSettings gameSettings, NativeWindowSettings nativeSettings,
-                CityGraph graph, Hospital hospital, float worldWidth, float worldHeight)
+    public Game(GameWindowSettings gameSettings, NativeWindowSettings nativeSettings, GameWorld world)
         : base(gameSettings, nativeSettings)
     {
-        _graph = graph;
-        _hospital = hospital;
-        _worldWidth = worldWidth;
-        _worldHeight = worldHeight;
+        _world = world;
     }
 
     protected override void OnLoad()
     {
         base.OnLoad();
-        GL.ClearColor(0.965f, 0.953f, 0.918f, 1f);
-
-        _shader = new Shader(VertexSource, FragmentSource);
-        _roadLayer = new RoadLayer();
-        _roadLayer.Load(_graph);
-
-        // Bolnica: koral prsten sa belom ispunom.
-        _markerLayer = new MarkerLayer();
-        _markerLayer.Load(new[]
-        {
-            (_hospital.Node.Position, 16f, Palette.HospitalRing),
-            (_hospital.Node.Position, 11f, Palette.HospitalFill),
-        });
+        _renderer = new Renderer(_world, ClientSize.X, ClientSize.Y);
+        _renderer.Initialize();
     }
 
+    // CPU: logika igre.
+    protected override void OnUpdateFrame(FrameEventArgs e)
+    {
+        base.OnUpdateFrame(e);
+        _world.Update((float)e.Time);
+    }
+
+    // GPU: crtanje.
     protected override void OnRenderFrame(FrameEventArgs e)
     {
         base.OnRenderFrame(e);
-        GL.Clear(ClearBufferMask.ColorBufferBit);
-
-        if (_shader != null && _roadLayer != null && _markerLayer != null)
-        {
-            _shader.Use();
-            _shader.SetVector2("uWorldSize", _worldWidth, _worldHeight);
-            _roadLayer.Render();
-            _markerLayer.Render();
-        }
-
+        _renderer?.Render();
         SwapBuffers();
     }
 
     protected override void OnResize(ResizeEventArgs e)
     {
         base.OnResize(e);
-        GL.Viewport(0, 0, e.Width, e.Height);
+        _renderer?.Resize(e.Width, e.Height);
+    }
+
+    // Prevlačenje levim tasterom pomera kameru.
+    protected override void OnMouseMove(MouseMoveEventArgs e)
+    {
+        base.OnMouseMove(e);
+        if (_renderer != null && MouseState.IsButtonDown(MouseButton.Left))
+        {
+            _renderer.Camera.Pan(new System.Numerics.Vector2(e.Delta.X, e.Delta.Y));
+        }
+    }
+
+    // Točkić zumira ka kursoru.
+    protected override void OnMouseWheel(MouseWheelEventArgs e)
+    {
+        base.OnMouseWheel(e);
+        if (_renderer != null)
+        {
+            var cursor = new System.Numerics.Vector2(MousePosition.X, MousePosition.Y);
+            _renderer.Camera.ZoomAt(cursor, MathF.Pow(1.1f, e.OffsetY));
+        }
+    }
+
+    protected override void OnUnload()
+    {
+        _renderer?.Dispose();
+        base.OnUnload();
     }
 }

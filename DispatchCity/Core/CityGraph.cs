@@ -25,6 +25,20 @@ public class CityGraph
         return edge;
     }
 
+    // Najveća brzina na nekoj ulici. A* je koristi u heuristici, pa se ne unosi ručno.
+    public float MaxSpeed()
+    {
+        float max = 0f;
+        foreach (Edge edge in _edges)
+        {
+            if (edge.SpeedLimit > max)
+            {
+                max = edge.SpeedLimit;
+            }
+        }
+        return max;
+    }
+
     // Vraća granu from -> to, ili null ako takva ulica ne postoji.
     public Edge? FindEdge(Node from, Node to)
     {

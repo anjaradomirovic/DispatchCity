@@ -7,6 +7,18 @@ public class GameConfig
     public float WorldHeight { get; set; } = 800f;
     public int Seed { get; set; } = 12345;
 
+    // Razmeri svih veličina u odnosu na Spacing (širine ulica, brzine, poluprečnici...).
+    public WorldMetrics Metrics
+    {
+        get { return new WorldMetrics(Spacing); }
+    }
+
+    // Pojas okruženja oko mape (kasnije: livade, krave...). Kamera ne izlazi izvan njega.
+    public float WorldMargin
+    {
+        get { return Metrics.WorldMargin; }
+    }
+
     // Najmanje rastojanje između raskrsnica (manje = gušći grad).
     public float Spacing { get; set; } = 75f;
 

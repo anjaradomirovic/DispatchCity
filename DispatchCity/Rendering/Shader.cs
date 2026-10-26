@@ -33,6 +33,21 @@ public class Shader
         GL.UseProgram(Handle);
     }
 
+    // System.Numerics čuva matricu po redovima, a GLSL je čita po kolonama.
+    // Ta dva "obrta" se poklapaju, pa se matrica šalje bez transponovanja.
+    public void SetMatrix(string name, System.Numerics.Matrix4x4 m)
+    {
+        int location = GL.GetUniformLocation(Handle, name);
+        float[] values =
+        {
+            m.M11, m.M12, m.M13, m.M14,
+            m.M21, m.M22, m.M23, m.M24,
+            m.M31, m.M32, m.M33, m.M34,
+            m.M41, m.M42, m.M43, m.M44,
+        };
+        GL.UniformMatrix4(location, 1, false, values);
+    }
+
     public void SetVector2(string name, float x, float y)
     {
         int location = GL.GetUniformLocation(Handle, name);

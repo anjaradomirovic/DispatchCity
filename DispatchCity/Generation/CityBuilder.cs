@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using DispatchCity.Config;
 using DispatchCity.Core;
 
 namespace DispatchCity.Generation;
@@ -19,7 +20,7 @@ public class CityBuilder
     // Korak 3: tipovi ulica (bulevari, glavne, sporedne).
     public CityBuilder WithRoadTypes()
     {
-        var classifier = new RoadClassifier(_graph, _seed);
+        var classifier = new RoadClassifier(_graph, _seed, new WorldMetrics(_minDistance));
         classifier.Classify();
         return this;
     }
@@ -215,7 +216,8 @@ public class CityBuilder
     {
         Node a = _graph.Nodes[c.A];
         Node b = _graph.Nodes[c.B];
-        _graph.AddTwoWay(a, b, RoadType.Local, 8f);
+        float speed = new WorldMetrics(_minDistance).SpeedOf(RoadType.Local);
+        _graph.AddTwoWay(a, b, RoadType.Local, speed);
         _roads.Add(c);
     }
 

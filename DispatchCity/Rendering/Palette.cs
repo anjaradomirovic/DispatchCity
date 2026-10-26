@@ -35,6 +35,11 @@ public static class Palette
         get { return FromHex(0xF08A7E); }   // koral
     }
 
+    public static Vector3 Ambulance
+    {
+        get { return FromHex(0xE5634F); }   // tamniji koral
+    }
+
     public static Vector3 HospitalFill
     {
         get { return FromHex(0xFFFFFF); }

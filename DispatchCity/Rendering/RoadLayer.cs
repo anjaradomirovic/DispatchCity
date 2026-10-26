@@ -1,19 +1,31 @@
 ﻿using System.Numerics;
+using DispatchCity.Config;
 using DispatchCity.Core;
+using DispatchCity.Simulation;
 using OpenTK.Graphics.OpenGL4;
 
 namespace DispatchCity.Rendering;
 
-public class RoadLayer
+// Ulice su statična geometrija: CPU je jednom pretvori u trouglove, GPU ih crta svaki frame.
+public class RoadLayer : IRenderLayer
 {
     private const int CircleSegments = 10;
 
+    private readonly Shader _shader;
+    private WorldMetrics _metrics = null!;   // postavlja se u Initialize
     private int _vao;
     private int _vbo;
     private int _vertexCount;
 
-    public void Load(CityGraph graph)
+    public RoadLayer(Shader shader)
     {
+        _shader = shader;
+    }
+
+    public void Initialize(GameWorld world)
+    {
+        CityGraph graph = world.Graph;
+        _metrics = world.Config.Metrics;
         var data = new List<float>();
 
         // Redosled crtanja: ono što je kasnije, nalazi se preko prethodnog.
@@ -39,23 +51,30 @@ public class RoadLayer
         GL.EnableVertexAttribArray(1);
     }
 
-    public void Render()
+    // Ulice se ne menjaju, nema šta da se šalje na GPU.
+    public void Update(GameWorld world)
     {
+    }
+
+    public void Render(Camera2D camera)
+    {
+        _shader.Use();
+        _shader.SetMatrix("uViewProj", camera.ViewProjection);
+
         GL.BindVertexArray(_vao);
         GL.DrawArrays(PrimitiveType.Triangles, 0, _vertexCount);
     }
 
-    private static float WidthOf(RoadType type)
+    public void Dispose()
     {
-        switch (type)
-        {
-            case RoadType.Avenue:
-                return 12f;
-            case RoadType.Main:
-                return 8f;
-            default:
-                return 5f;
-        }
+        GL.DeleteBuffer(_vbo);
+        GL.DeleteVertexArray(_vao);
+    }
+
+    // Širina je razmer jedinice mere (WorldMetrics), pa se skalira sa gustinom grada.
+    private float WidthOf(RoadType type)
+    {
+        return _metrics.RoadWidth(type);
     }
 
     private void AddRoadsOfType(CityGraph graph, RoadType type, List<float> data)
