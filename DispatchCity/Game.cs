@@ -1,5 +1,6 @@
 ﻿using DispatchCity.Core;
 using DispatchCity.Rendering;
+using DispatchCity.Simulation;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
@@ -30,17 +31,20 @@ public class Game : GameWindow
         "    FragColor = vec4(vColor, 1.0);\n" +
         "}\n";
     private readonly CityGraph _graph;
+    private readonly Hospital _hospital;
     private readonly float _worldWidth;
     private readonly float _worldHeight;
 
     private Shader? _shader;
     private RoadLayer? _roadLayer;
+    private MarkerLayer? _markerLayer;
 
     public Game(GameWindowSettings gameSettings, NativeWindowSettings nativeSettings,
-                CityGraph graph, float worldWidth, float worldHeight)
+                CityGraph graph, Hospital hospital, float worldWidth, float worldHeight)
         : base(gameSettings, nativeSettings)
     {
         _graph = graph;
+        _hospital = hospital;
         _worldWidth = worldWidth;
         _worldHeight = worldHeight;
     }
@@ -53,6 +57,14 @@ public class Game : GameWindow
         _shader = new Shader(VertexSource, FragmentSource);
         _roadLayer = new RoadLayer();
         _roadLayer.Load(_graph);
+
+        // Bolnica: koral prsten sa belom ispunom.
+        _markerLayer = new MarkerLayer();
+        _markerLayer.Load(new[]
+        {
+            (_hospital.Node.Position, 16f, Palette.HospitalRing),
+            (_hospital.Node.Position, 11f, Palette.HospitalFill),
+        });
     }
 
     protected override void OnRenderFrame(FrameEventArgs e)
@@ -60,11 +72,12 @@ public class Game : GameWindow
         base.OnRenderFrame(e);
         GL.Clear(ClearBufferMask.ColorBufferBit);
 
-        if (_shader != null && _roadLayer != null)
+        if (_shader != null && _roadLayer != null && _markerLayer != null)
         {
             _shader.Use();
             _shader.SetVector2("uWorldSize", _worldWidth, _worldHeight);
             _roadLayer.Render();
+            _markerLayer.Render();
         }
 
         SwapBuffers();

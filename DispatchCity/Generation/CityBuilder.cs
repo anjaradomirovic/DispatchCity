@@ -121,6 +121,91 @@ public class CityBuilder
         return this;
     }
 
+    // Korak 4: jednosmerne ulice. Samo sporedne (Local) ulice, a svaka promena se
+    // zadržava samo ako graf ostaje jako povezan, inače se ulica vraća u dvosmernu.
+    public CityBuilder WithOneWayStreets(float fraction)
+    {
+        var random = new Random(_seed + 3);
+
+        var pairs = new List<Edge>();
+        foreach (Edge edge in _graph.Edges)
+        {
+            if (edge.Type == RoadType.Local && edge.From.Id < edge.To.Id)
+            {
+                pairs.Add(edge);
+            }
+        }
+
+        // Mešanje (Fisher-Yates) da jednosmerne ulice nisu grupisane na jednom mestu.
+        for (int i = pairs.Count - 1; i > 0; i--)
+        {
+            int j = random.Next(i + 1);
+            (pairs[i], pairs[j]) = (pairs[j], pairs[i]);
+        }
+
+        int target = (int)(pairs.Count * fraction);
+        int made = 0;
+
+        foreach (Edge forward in pairs)
+        {
+            if (made >= target)
+            {
+                break;
+            }
+
+            Edge? backward = _graph.FindEdge(forward.To, forward.From);
+            if (backward == null)
+            {
+                continue;
+            }
+
+            // Pokušavamo oba smera, nasumičnim redom.
+            bool forwardFirst = random.Next(2) == 0;
+            Edge first = forwardFirst ? forward : backward;
+            Edge second = forwardFirst ? backward : forward;
+
+            if (TryRemove(first) || TryRemove(second))
+            {
+                made++;
+            }
+        }
+        return this;
+    }
+
+    private bool TryRemove(Edge edge)
+    {
+        _graph.RemoveEdge(edge);
+        if (ConnectivityChecker.IsStronglyConnected(_graph))
+        {
+            return true;
+        }
+        _graph.RestoreEdge(edge);
+        return false;
+    }
+
+    // Da li se bilo koje dve ulice (koje ne dele raskrsnicu) seku. Koristi se u validaciji mape.
+    public static bool HasCrossingRoads(CityGraph graph)
+    {
+        IReadOnlyList<Edge> edges = graph.Edges;
+        for (int i = 0; i < edges.Count; i++)
+        {
+            for (int j = i + 1; j < edges.Count; j++)
+            {
+                Edge a = edges[i];
+                Edge b = edges[j];
+                if (a.From == b.From || a.From == b.To || a.To == b.From || a.To == b.To)
+                {
+                    continue;
+                }
+                if (SegmentsCross(a.From.Position, a.To.Position, b.From.Position, b.To.Position))
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     public CityGraph Build()
     {
         return _graph;
@@ -221,7 +306,7 @@ public class CityBuilder
         return false;
     }
 
-    private static bool SegmentsCross(Vector2 p1, Vector2 p2, Vector2 p3, Vector2 p4)
+    internal static bool SegmentsCross(Vector2 p1, Vector2 p2, Vector2 p3, Vector2 p4)
     {
         float d1 = Cross(p3, p4, p1);
         float d2 = Cross(p3, p4, p2);

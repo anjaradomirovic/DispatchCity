@@ -25,6 +25,33 @@ public class CityGraph
         return edge;
     }
 
+    // Vraća granu from -> to, ili null ako takva ulica ne postoji.
+    public Edge? FindEdge(Node from, Node to)
+    {
+        foreach (Edge edge in from.Outgoing)
+        {
+            if (edge.To == to)
+            {
+                return edge;
+            }
+        }
+        return null;
+    }
+
+    // Skida granu iz grafa (za jednosmerne ulice).
+    public void RemoveEdge(Edge edge)
+    {
+        edge.From.Outgoing.Remove(edge);
+        _edges.Remove(edge);
+    }
+
+    // Vraća granu koja je prethodno skinuta sa RemoveEdge.
+    public void RestoreEdge(Edge edge)
+    {
+        edge.From.Outgoing.Add(edge);
+        _edges.Add(edge);
+    }
+
     // Dvosmerna ulica = dve usmerene grane.
     public void AddTwoWay(Node a, Node b, RoadType type, float speedLimit)
     {

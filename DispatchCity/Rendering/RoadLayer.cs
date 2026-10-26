@@ -20,6 +20,7 @@ public class RoadLayer
         AddRoadsOfType(graph, RoadType.Local, data);
         AddRoadsOfType(graph, RoadType.Main, data);
         AddRoadsOfType(graph, RoadType.Avenue, data);
+        AddOneWayArrows(graph, data);
 
         float[] array = data.ToArray();
         _vertexCount = array.Length / 5;   // svaki vrh ima x, y, r, g, b
@@ -64,8 +65,15 @@ public class RoadLayer
 
         foreach (Edge edge in graph.Edges)
         {
-            // Svaka ulica postoji u dva smera, crtamo je samo jednom.
-            if (edge.Type != type || edge.From.Id > edge.To.Id)
+            if (edge.Type != type)
+            {
+                continue;
+            }
+
+            // Dvosmerna ulica postoji u dva smera, crtamo je samo jednom.
+            // Jednosmerna ima samo jednu granu, pa se crta uvek.
+            bool oneWay = graph.FindEdge(edge.To, edge.From) == null;
+            if (!oneWay && edge.From.Id > edge.To.Id)
             {
                 continue;
             }
@@ -73,6 +81,29 @@ public class RoadLayer
             AddQuad(edge.From.Position, edge.To.Position, width, color, data);
             AddCircle(edge.From.Position, width / 2f, color, data);
             AddCircle(edge.To.Position, width / 2f, color, data);
+        }
+    }
+
+    // Mali trougao na sredini jednosmerne ulice, okrenut u smeru vožnje.
+    private void AddOneWayArrows(CityGraph graph, List<float> data)
+    {
+        Vector3 color = Palette.OneWayArrow;
+
+        foreach (Edge edge in graph.Edges)
+        {
+            if (graph.FindEdge(edge.To, edge.From) != null)
+            {
+                continue;   // dvosmerna
+            }
+
+            float size = WidthOf(edge.Type) * 0.45f;
+            Vector2 direction = Vector2.Normalize(edge.To.Position - edge.From.Position);
+            Vector2 normal = new Vector2(-direction.Y, direction.X);
+            Vector2 middle = (edge.From.Position + edge.To.Position) / 2f;
+
+            AddVertex(middle + direction * size, color, data);
+            AddVertex(middle - direction * size * 0.6f + normal * size * 0.7f, color, data);
+            AddVertex(middle - direction * size * 0.6f - normal * size * 0.7f, color, data);
         }
     }
 

@@ -24,6 +24,22 @@ public static class Palette
         }
     }
 
+    // Strelica na jednosmernoj ulici.
+    public static Vector3 OneWayArrow
+    {
+        get { return FromHex(0xA8A18E); }
+    }
+
+    public static Vector3 HospitalRing
+    {
+        get { return FromHex(0xF08A7E); }   // koral
+    }
+
+    public static Vector3 HospitalFill
+    {
+        get { return FromHex(0xFFFFFF); }
+    }
+
     private static Vector3 FromHex(int rgb)
     {
         float r = ((rgb >> 16) & 0xFF) / 255f;
