@@ -36,6 +36,33 @@ public static class Palette
         get { return FromHex(0xF08A7E); }   // koral
     }
 
+    // Gužva boji ulicu od njene boje ka bledožutoj (srednja), pa narandžastoj (jaka). Bez oštrih crvenih tonova.
+    public static Vector3 JamMid
+    {
+        get { return FromHex(0xF6D77A); }
+    }
+
+    public static Vector3 JamHigh
+    {
+        get { return FromHex(0xF08A3C); }
+    }
+
+    // Rampa toplotne mape: blizu bolnice je bledo, daleko je tamnije. Bez oštrih crvenih tonova.
+    public static Vector3 HeatNear
+    {
+        get { return FromHex(0xF6EBB5); }
+    }
+
+    public static Vector3 HeatMid
+    {
+        get { return FromHex(0xF4B66E); }
+    }
+
+    public static Vector3 HeatFar
+    {
+        get { return FromHex(0xD9695F); }
+    }
+
     // Poziv: boja ispune ide od bledožute (zdrav) do narandžaste (kritičan), bez oštrih crvenih tonova.
     public static Vector3 HealthColor(float health)
     {

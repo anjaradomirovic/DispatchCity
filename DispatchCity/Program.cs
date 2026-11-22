@@ -1,6 +1,7 @@
 ﻿using DispatchCity;
 using DispatchCity.Config;
 using DispatchCity.Core;
+using DispatchCity.Diagnostics;
 using DispatchCity.Generation;
 using DispatchCity.Pathfinding;
 using DispatchCity.Simulation;
@@ -31,6 +32,14 @@ if (args.Length > 0 && args[0] == "--verify")
 
     Console.WriteLine((total - failed) + " / " + total + " gradova je ispravno.");
     return failed == 0 ? 0 : 1;
+}
+
+// Poredjenje algoritama: dotnet run -- --compare 100 50  (gradova, parova po gradu)
+if (args.Length > 0 && args[0] == "--compare")
+{
+    int cities = args.Length > 1 ? int.Parse(args[1]) : 100;
+    int pairsPerCity = args.Length > 2 ? int.Parse(args[2]) : 50;
+    return PathfinderComparison.Run(cities, pairsPerCity);
 }
 
 GameConfig config = GameConfig.Level1();

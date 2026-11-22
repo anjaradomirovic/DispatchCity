@@ -17,6 +17,9 @@ public class Renderer : IDisposable
 
     public Camera2D Camera { get; }
 
+    // Podešavanja prikaza (toplotna mapa...) koja menjaju panel i tasteri.
+    public ViewOptions Options { get; } = new ViewOptions();
+
     public Renderer(GameWorld world, int viewportWidth, int viewportHeight)
     {
         _world = world;
@@ -36,11 +39,11 @@ public class Renderer : IDisposable
         Vector3 background = Palette.Background;
         GL.ClearColor(background.X, background.Y, background.Z, 1f);
 
-        _flatShader = new Shader(ShaderSources.FlatVertex, ShaderSources.Fragment);
+        _flatShader = new Shader(ShaderSources.FlatVertex, ShaderSources.RoadFragment);
         _instancedShader = new Shader(ShaderSources.InstancedVertex, ShaderSources.Fragment);
 
         // Redosled je redosled crtanja: ono što je kasnije, nalazi se preko prethodnog.
-        _layers.Add(new RoadLayer(_flatShader));
+        _layers.Add(new RoadLayer(_flatShader, Options));
         _layers.Add(new HospitalLayer(_instancedShader));
         _layers.Add(new CallLayer(_instancedShader));
         _layers.Add(new AmbulanceLayer(_instancedShader));

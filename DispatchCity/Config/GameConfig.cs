@@ -36,6 +36,17 @@ public class GameConfig
     public float CallIntervalSeconds { get; set; } = 8f;      // prosečan razmak između poziva
     public int MaxActiveCalls { get; set; } = 6;
 
+    // Gužve u saobraćaju. Vremena su u sekundama igre.
+    public bool JamsEnabled { get; set; } = true;
+    public float FirstJamDelaySeconds { get; set; } = 10f;
+    public float JamIntervalSeconds { get; set; } = 15f;      // prosečan razmak između gužvi
+    public float JamDurationSeconds { get; set; } = 30f;
+    public int MaxActiveJams { get; set; } = 3;
+    public float CongestionEaseSeconds { get; set; } = 3f;    // koliko se glatko gužva menja
+
+    // Koliko često se ponovo računa toplotna mapa (gužva menja vremena dolaska).
+    public float HeatMapRefreshSeconds { get; set; } = 1f;
+
     // Nivo traje dok se ne pojavi ovoliko poziva i svi se ne zavrse (spasu ili izgube).
     public int CallsPerLevel { get; set; } = 15;
 

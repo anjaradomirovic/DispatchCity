@@ -56,6 +56,17 @@ public class WorldMetrics
         get { return 0.13f * Unit; }
     }
 
+    // Poluprečnik oblasti zahvaćene gužvom (u jedinicama mere).
+    public float JamRadiusMin
+    {
+        get { return 1.5f * Unit; }
+    }
+
+    public float JamRadiusMax
+    {
+        get { return 3f * Unit; }
+    }
+
     public float RoadWidth(RoadType type)
     {
         switch (type)

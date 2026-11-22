@@ -69,11 +69,11 @@ public class Game : GameWindow
         base.OnRenderFrame(e);
         _renderer?.Render();
 
-        if (_imgui != null)
+        if (_imgui != null && _renderer != null)
         {
             int panelWidth = PanelWidth(ClientSize.X);
             _imgui.Update(this, (float)e.Time);
-            _panel.Draw(_world, ClientSize.X - panelWidth, panelWidth, ClientSize.Y);
+            _panel.Draw(_world, _renderer.Options, ClientSize.X - panelWidth, panelWidth, ClientSize.Y);
             _imgui.Render();
         }
 
@@ -95,6 +95,14 @@ public class Game : GameWindow
         if (e.Key == Keys.Space)
         {
             _world.IsPaused = !_world.IsPaused;
+        }
+        else if (e.Key == Keys.H && _renderer != null)
+        {
+            _renderer.Options.ShowHeatMap = !_renderer.Options.ShowHeatMap;
+        }
+        else if (e.Key == Keys.G && _renderer != null)
+        {
+            _renderer.Options.ShowTraffic = !_renderer.Options.ShowTraffic;
         }
     }
 

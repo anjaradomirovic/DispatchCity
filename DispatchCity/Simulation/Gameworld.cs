@@ -16,6 +16,7 @@ public class GameWorld
     private readonly CallFactory _callFactory;
     private readonly Random _random;
     private float _timeToNextCall;
+    private float _timeToHeatRefresh;
 
     // Observer: UI i ostali se pretplate, a svet ne zna ko sluša.
     public event Action<EmergencyCall>? CallCreated;
@@ -29,6 +30,12 @@ public class GameWorld
     public IReadOnlyList<Ambulance> Ambulances => _ambulances;
     public IReadOnlyList<EmergencyCall> Calls => _calls;
     public ScoreBoard Score { get; }
+
+    // Vreme vožnje od bolnice do svake raskrsnice (za toplotnu mapu).
+    public TravelTimeMap TravelTimes { get; }
+
+    // Gužve: menjaju Edge.Congestion, pa se menjaju i putevi, vremena i boje ulica.
+    public TrafficModel Traffic { get; }
 
     // Koliko je poziva do sada stiglo (od CallsPerLevel) i da li je nivo gotov.
     public int CallsCreated { get; private set; }
@@ -51,6 +58,8 @@ public class GameWorld
         Hospital = hospital;
         _pathfinder = pathfinder;
         Score = new ScoreBoard(config);
+        TravelTimes = new TravelTimeMap(graph, hospital.Node);
+        Traffic = new TrafficModel(config, graph);
         _callFactory = new CallFactory(config, graph);
         _random = new Random(config.Seed + 5);
         _timeToNextCall = config.FirstCallDelaySeconds;
@@ -93,6 +102,7 @@ public class GameWorld
         // Kad je nivo gotov, pozivi i raspodela staju, a vozila dovrse povratak u bolnicu.
         if (!IsFinished)
         {
+            UpdateTraffic(deltaSeconds);
             UpdateCalls(deltaSeconds);
             RunAutoDispatch();
             CheckLevelEnd();
@@ -101,6 +111,20 @@ public class GameWorld
         foreach (Ambulance ambulance in _ambulances)
         {
             ambulance.Update(deltaSeconds);
+        }
+    }
+
+    // Gužva se menja stalno, a toplotna mapa (Dijkstra kroz ceo graf) se ne računa svaki frame
+    // nego u razmaku HeatMapRefreshSeconds.
+    private void UpdateTraffic(float deltaSeconds)
+    {
+        Traffic.Update(deltaSeconds);
+
+        _timeToHeatRefresh -= deltaSeconds;
+        if (_timeToHeatRefresh <= 0f)
+        {
+            TravelTimes.Recompute();
+            _timeToHeatRefresh = Config.HeatMapRefreshSeconds;
         }
     }
 

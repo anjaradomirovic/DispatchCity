@@ -20,7 +20,7 @@ public class SidePanel
     // Izabrani poziv (UI stanje, svet za njega ne zna). Biće potreban za ručnu dodelu vozila.
     public int? SelectedCallId { get; private set; }
 
-    public void Draw(GameWorld world, float x, float width, float height)
+    public void Draw(GameWorld world, ViewOptions options, float x, float width, float height)
     {
         ImGui.SetNextWindowPos(new System.Numerics.Vector2(x, 0f));
         ImGui.SetNextWindowSize(new System.Numerics.Vector2(width, height));
@@ -37,6 +37,7 @@ public class SidePanel
             ImGui.Separator();
 
             DrawTimeControls(world);
+            DrawViewOptions(options);
             ImGui.Spacing();
             DrawScore(world);
             ImGui.Spacing();
@@ -140,6 +141,52 @@ public class SidePanel
         {
             ImGui.TextColored(UiTheme.FromHex(0xE5634F), "PAUZA");
         }
+    }
+
+    // Toplotna mapa: ulice obojene vremenom dolaska iz bolnice (taster H), sa legendom rampe.
+    private static void DrawViewOptions(ViewOptions options)
+    {
+        bool showTraffic = options.ShowTraffic;
+        if (ImGui.Checkbox("Guzva (G)", ref showTraffic))
+        {
+            options.ShowTraffic = showTraffic;
+        }
+
+        bool showHeat = options.ShowHeatMap;
+        if (ImGui.Checkbox("Toplotna mapa (H)", ref showHeat))
+        {
+            options.ShowHeatMap = showHeat;
+        }
+
+        if (!showHeat)
+        {
+            return;
+        }
+
+        // Legenda: traka od boje "blizu" preko "srednje" do "daleko", ista rampa kao na mapi.
+        float font = ImGui.GetFontSize();
+        System.Numerics.Vector2 start = ImGui.GetCursorScreenPos();
+        float barWidth = ImGui.GetContentRegionAvail().X;
+        float barHeight = font * 0.8f;
+        float half = barWidth / 2f;
+
+        uint near = ColorOf(Palette.HeatNear);
+        uint mid = ColorOf(Palette.HeatMid);
+        uint far = ColorOf(Palette.HeatFar);
+
+        ImDrawListPtr draw = ImGui.GetWindowDrawList();
+        draw.AddRectFilledMultiColor(start,
+            new System.Numerics.Vector2(start.X + half, start.Y + barHeight), near, mid, mid, near);
+        draw.AddRectFilledMultiColor(new System.Numerics.Vector2(start.X + half, start.Y),
+            new System.Numerics.Vector2(start.X + barWidth, start.Y + barHeight), mid, far, far, mid);
+
+        ImGui.Dummy(new System.Numerics.Vector2(barWidth, barHeight));
+        ImGui.TextDisabled("blizu bolnice  ->  daleko");
+    }
+
+    private static uint ColorOf(System.Numerics.Vector3 color)
+    {
+        return ImGui.GetColorU32(new System.Numerics.Vector4(color.X, color.Y, color.Z, 1f));
     }
 
     // Rezultat uzivo. Kad je nivo gotov, isti brojevi su konacan rezultat.
