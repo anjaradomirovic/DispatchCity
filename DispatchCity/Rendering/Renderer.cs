@@ -10,6 +10,8 @@ public class Renderer : IDisposable
 {
     private readonly GameWorld _world;
     private readonly List<IRenderLayer> _layers = new List<IRenderLayer>();
+    private int _mapWidth;
+    private int _mapHeight;
     private Shader? _flatShader;
     private Shader? _instancedShader;
 
@@ -18,6 +20,8 @@ public class Renderer : IDisposable
     public Renderer(GameWorld world, int viewportWidth, int viewportHeight)
     {
         _world = world;
+        _mapWidth = viewportWidth;
+        _mapHeight = viewportHeight;
 
         // Granice kamere: mapa plus pojas okruženja oko nje.
         float margin = world.Config.WorldMargin;
@@ -49,6 +53,9 @@ public class Renderer : IDisposable
 
     public void Render()
     {
+        // Mapa zauzima samo svoj deo prozora (ostalo je panel). ImGui posle ovoga
+        // postavlja ceo prozor, pa se viewport mora postaviti svaki frame.
+        GL.Viewport(0, 0, _mapWidth, _mapHeight);
         GL.Clear(ClearBufferMask.ColorBufferBit);
 
         foreach (IRenderLayer layer in _layers)
@@ -58,10 +65,12 @@ public class Renderer : IDisposable
         }
     }
 
-    public void Resize(int width, int height)
+    // Veličina dela prozora u kome se crta mapa (bez panela).
+    public void Resize(int mapWidth, int mapHeight)
     {
-        GL.Viewport(0, 0, width, height);
-        Camera.SetViewport(width, height);
+        _mapWidth = mapWidth;
+        _mapHeight = mapHeight;
+        Camera.SetViewport(mapWidth, mapHeight);
     }
 
     public void Dispose()

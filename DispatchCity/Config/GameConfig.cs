@@ -7,6 +7,9 @@ public class GameConfig
     public float WorldHeight { get; set; } = 800f;
     public int Seed { get; set; } = 12345;
 
+    // Širina kontrolnog panela kao razmer širine prozora (ostatak je mapa).
+    public float PanelWidthRatio { get; set; } = 0.26f;
+
     // Razmeri svih veličina u odnosu na Spacing (širine ulica, brzine, poluprečnici...).
     public WorldMetrics Metrics
     {
