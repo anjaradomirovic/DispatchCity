@@ -88,6 +88,16 @@ public class Game : GameWindow
         ApplyUiScale();
     }
 
+    // Space pauzira i nastavlja igru.
+    protected override void OnKeyDown(KeyboardKeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        if (e.Key == Keys.Space)
+        {
+            _world.IsPaused = !_world.IsPaused;
+        }
+    }
+
     // Prevlačenje levim tasterom pomera kameru (ne i kad je miš iznad panela).
     protected override void OnMouseMove(MouseMoveEventArgs e)
     {

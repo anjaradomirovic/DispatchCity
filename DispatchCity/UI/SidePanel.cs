@@ -1,5 +1,6 @@
 ﻿using DispatchCity.Rendering;
 using DispatchCity.Simulation;
+using DispatchCity.Simulation.Dispatch;
 using ImGuiNET;
 
 namespace DispatchCity.UI;
@@ -12,6 +13,9 @@ public class SidePanel
     // Veličine kartice su razmeri veličine slova.
     private const float CardWidthRatio = 9f;
     private const float CardHeightRatio = 8f;
+
+    // Ponudjene brzine igre.
+    private static readonly float[] SpeedOptions = { 1f, 2f, 4f };
 
     // Izabrani poziv (UI stanje, svet za njega ne zna). Biće potreban za ručnu dodelu vozila.
     public int? SelectedCallId { get; private set; }
@@ -32,6 +36,12 @@ public class SidePanel
             ImGui.Text("Dispatch City");
             ImGui.Separator();
 
+            DrawTimeControls(world);
+            ImGui.Spacing();
+            DrawScore(world);
+            ImGui.Spacing();
+            DrawControlMode(world);
+            ImGui.Spacing();
             DrawCalls(world);
             ImGui.Spacing();
             DrawAmbulances(world);
@@ -108,14 +118,125 @@ public class SidePanel
         ImGui.PopStyleColor();
     }
 
-    private static void DrawAmbulances(GameWorld world)
+    // Pauza i brzina igre. Space na tastaturi radi isto kao dugme Pauza.
+    private static void DrawTimeControls(GameWorld world)
+    {
+        if (ImGui.Button(world.IsPaused ? "Nastavi" : "Pauza"))
+        {
+            world.IsPaused = !world.IsPaused;
+        }
+
+        for (int i = 0; i < SpeedOptions.Length; i++)
+        {
+            ImGui.SameLine();
+            float speed = SpeedOptions[i];
+            if (ImGui.RadioButton((int)speed + "x", world.SpeedMultiplier == speed))
+            {
+                world.SpeedMultiplier = speed;
+            }
+        }
+
+        if (world.IsPaused)
+        {
+            ImGui.TextColored(UiTheme.FromHex(0xE5634F), "PAUZA");
+        }
+    }
+
+    // Rezultat uzivo. Kad je nivo gotov, isti brojevi su konacan rezultat.
+    private static void DrawScore(GameWorld world)
+    {
+        ScoreBoard score = world.Score;
+
+        if (world.IsFinished)
+        {
+            ImGui.TextColored(UiTheme.FromHex(0xE5634F), "KRAJ NIVOA");
+        }
+        else
+        {
+            ImGui.Text("Poziv " + world.CallsCreated + " / " + world.Config.CallsPerLevel);
+        }
+
+        ImGui.Text("Bodovi: " + score.Points);
+        ImGui.Text("Spaseno: " + score.Saved + "   Izgubljeno: " + score.Lost);
+        ImGui.Text("Prosecan odziv: " + score.AverageResponseSeconds.ToString("0.0") + " s");
+    }
+
+    // Ko dodeljuje vozila: igrac (rucno) ili jedna od strategija.
+    private static void DrawControlMode(GameWorld world)
+    {
+        ImGui.Text("Upravljanje");
+
+        if (ImGui.RadioButton("Rucno", world.AutoDispatch == null))
+        {
+            world.AutoDispatch = null;
+        }
+
+        foreach (IDispatchStrategy strategy in world.Strategies)
+        {
+            if (ImGui.RadioButton("Auto: " + strategy.Name, world.AutoDispatch == strategy))
+            {
+                world.AutoDispatch = strategy;
+            }
+        }
+    }
+
+    // Klik na slobodno vozilo salje ga na izabrani poziv. Zauzeta vozila su zasivljena.
+    private void DrawAmbulances(GameWorld world)
     {
         ImGui.Text("Vozila (" + world.Ambulances.Count + ")");
+        ImGui.TextDisabled("Izaberi poziv, pa vozilo");
+
         for (int i = 0; i < world.Ambulances.Count; i++)
         {
             Ambulance ambulance = world.Ambulances[i];
-            ImGui.BulletText("Vozilo " + (i + 1) + ": " + ambulance.State.Name);
+
+            string label = "Vozilo " + (i + 1) + ": " + ambulance.State.Name;
+            if (ambulance.Call != null)
+            {
+                label += "  (poziv #" + ambulance.Call.Id + ")";
+            }
+
+            ImGuiSelectableFlags flags = ambulance.IsAvailable
+                ? ImGuiSelectableFlags.None
+                : ImGuiSelectableFlags.Disabled;
+
+            if (ImGui.Selectable(label + "##vozilo" + i, false, flags))
+            {
+                SendToSelectedCall(world, ambulance);
+            }
         }
+    }
+
+    // Isti Command koji koristi i automatska strategija, samo ga ovde pravi igrac.
+    private void SendToSelectedCall(GameWorld world, Ambulance ambulance)
+    {
+        EmergencyCall? call = FindSelectedCall(world);
+        if (call == null)
+        {
+            return;
+        }
+
+        if (world.Execute(new AssignAmbulanceCommand(ambulance, call)))
+        {
+            SelectedCallId = null;
+        }
+    }
+
+    private EmergencyCall? FindSelectedCall(GameWorld world)
+    {
+        if (SelectedCallId == null)
+        {
+            return null;
+        }
+
+        foreach (EmergencyCall call in world.Calls)
+        {
+            if (call.Id == SelectedCallId.Value)
+            {
+                return call;
+            }
+        }
+        return null;
     }
 
     private static bool Contains(GameWorld world, int callId)

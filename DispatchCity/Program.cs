@@ -57,11 +57,19 @@ var world = new GameWorld(config, graph, hospital, pathfinder);
 world.AddAmbulance();
 world.AddAmbulance();
 
-// Privremeno automatski, dok ne dodamo ručno biranje vozila iz panela.
-world.AutoDispatch = new NearestAmbulanceStrategy(pathfinder);
+// Strategije koje igrač bira u panelu. Igra počinje automatski, a "Rucno" gasi strategiju.
+var nearest = new NearestAmbulanceStrategy(pathfinder);
+world.AddStrategy(nearest);
+world.AddStrategy(new HighestPriorityStrategy(pathfinder));
+world.AutoDispatch = nearest;
 
 world.PatientSaved += call =>
     Console.WriteLine("Pacijent spasen (poziv #" + call.Id + "), odziv " + call.ResponseSeconds.ToString("0.0") + " s");
+
+world.LevelFinished += () =>
+    Console.WriteLine("KRAJ NIVOA (" + (world.AutoDispatch?.Name ?? "Rucno") + "): bodovi " + world.Score.Points
+        + ", spaseno " + world.Score.Saved + ", izgubljeno " + world.Score.Lost
+        + ", prosecan odziv " + world.Score.AverageResponseSeconds.ToString("0.0") + " s");
 
 // Observer: za sada samo ispis u konzolu, kasnije se na ove događaje pretplaćuje panel.
 world.CallCreated += call =>

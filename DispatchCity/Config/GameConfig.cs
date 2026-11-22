@@ -36,6 +36,14 @@ public class GameConfig
     public float CallIntervalSeconds { get; set; } = 8f;      // prosečan razmak između poziva
     public int MaxActiveCalls { get; set; } = 6;
 
+    // Nivo traje dok se ne pojavi ovoliko poziva i svi se ne zavrse (spasu ili izgube).
+    public int CallsPerLevel { get; set; } = 15;
+
+    // Bodovi za spasenog pacijenta, po prioritetu poziva.
+    public int PointsLow { get; set; } = 10;
+    public int PointsMedium { get; set; } = 20;
+    public int PointsHigh { get; set; } = 40;
+
     // Za koliko sekundi bez pomoći pacijent padne sa pune na nulu zdravlja.
     public float HighPrioritySurvivalSeconds { get; set; } = 60f;
     public float MediumPrioritySurvivalSeconds { get; set; } = 120f;
