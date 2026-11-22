@@ -1,5 +1,6 @@
 ﻿using System.Numerics;
 using DispatchCity.Core;
+using DispatchCity.Simulation;
 
 namespace DispatchCity.Rendering;
 
@@ -33,6 +34,20 @@ public static class Palette
     public static Vector3 HospitalRing
     {
         get { return FromHex(0xF08A7E); }   // koral
+    }
+
+    // Poziv: boja ispune ide od bledožute (zdrav) do narandžaste (kritičan), bez oštrih crvenih tonova.
+    public static Vector3 HealthColor(float health)
+    {
+        Vector3 critical = FromHex(0xF08A3C);
+        Vector3 healthy = FromHex(0xF4E3A1);
+        return Vector3.Lerp(critical, healthy, Math.Clamp(health, 0f, 1f));
+    }
+
+    // Prsten poziva: laka povreda je neutralna, teška je koral.
+    public static Vector3 CallRing(InjurySeverity severity)
+    {
+        return severity == InjurySeverity.Heavy ? FromHex(0xE5634F) : FromHex(0xB9B29F);
     }
 
     public static Vector3 Ambulance

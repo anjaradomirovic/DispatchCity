@@ -50,6 +50,12 @@ public class WorldMetrics
         get { return 0.04f * Unit; }
     }
 
+    // Poluprečnik poziva srednjeg prioriteta. Ostali se skaliraju razmerom (vidi CallLayer).
+    public float CallBaseRadius
+    {
+        get { return 0.13f * Unit; }
+    }
+
     public float RoadWidth(RoadType type)
     {
         switch (type)

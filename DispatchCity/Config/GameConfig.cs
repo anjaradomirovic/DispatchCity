@@ -28,6 +28,25 @@ public class GameConfig
     // Deo sporednih ulica koji postaje jednosmeran (plan: 15-20%).
     public float OneWayFraction { get; set; } = 0.18f;
 
+    // Pozivi. Vremena su u sekundama igre.
+    public float FirstCallDelaySeconds { get; set; } = 2f;
+    public float CallIntervalSeconds { get; set; } = 8f;      // prosečan razmak između poziva
+    public int MaxActiveCalls { get; set; } = 6;
+
+    // Za koliko sekundi bez pomoći pacijent padne sa pune na nulu zdravlja.
+    public float HighPrioritySurvivalSeconds { get; set; } = 60f;
+    public float MediumPrioritySurvivalSeconds { get; set; } = 120f;
+    public float LowPrioritySurvivalSeconds { get; set; } = 240f;
+
+    // Verovatnoće (zbir visokog i srednjeg je manji od 1, ostalo je nizak prioritet).
+    public float HighPriorityChance { get; set; } = 0.2f;
+    public float MediumPriorityChance { get; set; } = 0.3f;
+    public float HeavyInjuryChance { get; set; } = 0.4f;
+
+    // Zadržavanje vozila na licu mesta (sekunde igre).
+    public float LightSceneSeconds { get; set; } = 4f;
+    public float HeavyLoadSeconds { get; set; } = 3f;
+
     public static GameConfig Level1()
     {
         return new GameConfig();

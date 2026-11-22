@@ -38,6 +38,7 @@ public class Renderer : IDisposable
         // Redosled je redosled crtanja: ono što je kasnije, nalazi se preko prethodnog.
         _layers.Add(new RoadLayer(_flatShader));
         _layers.Add(new HospitalLayer(_instancedShader));
+        _layers.Add(new CallLayer(_instancedShader));
         _layers.Add(new AmbulanceLayer(_instancedShader));
 
         foreach (IRenderLayer layer in _layers)

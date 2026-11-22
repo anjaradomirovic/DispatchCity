@@ -7,7 +7,6 @@ public class Hospital
 {
     public string Name { get; }
     public Node Node { get; }
-
     public Hospital(string name, Node node)
     {
         Name = name;

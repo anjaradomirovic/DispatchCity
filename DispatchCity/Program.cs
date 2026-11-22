@@ -4,6 +4,7 @@ using DispatchCity.Core;
 using DispatchCity.Generation;
 using DispatchCity.Pathfinding;
 using DispatchCity.Simulation;
+using DispatchCity.Simulation.Dispatch;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
@@ -54,6 +55,19 @@ nativeSettings.Profile = ContextProfile.Core;
 var pathfinder = new AStarPathfinder(graph.MaxSpeed());
 var world = new GameWorld(config, graph, hospital, pathfinder);
 world.AddAmbulance();
+world.AddAmbulance();
+
+// Privremeno automatski, dok ne dodamo ručno biranje vozila iz panela.
+world.AutoDispatch = new NearestAmbulanceStrategy(pathfinder);
+
+world.PatientSaved += call =>
+    Console.WriteLine("Pacijent spasen (poziv #" + call.Id + "), odziv " + call.ResponseSeconds.ToString("0.0") + " s");
+
+// Observer: za sada samo ispis u konzolu, kasnije se na ove događaje pretplaćuje panel.
+world.CallCreated += call =>
+    Console.WriteLine("Poziv #" + call.Id + ": " + call.Priority + ", " + call.Severity);
+world.PatientDied += call =>
+    Console.WriteLine("Pacijent izgubljen (poziv #" + call.Id + ")");
 
 using (var game = new Game(GameWindowSettings.Default, nativeSettings, world))
 {
