@@ -32,6 +32,9 @@ public class CallLayer : InstancedCircleLayer
 
         foreach (EmergencyCall call in world.Calls)
         {
+            if (call.Status == CallStatus.Attended) { 
+                continue;
+            }
             float ringRadius = metrics.CallBaseRadius * ScaleOf(call.Priority);
             float health = call.Patient.Health;
             float fillRadius = ringRadius * (EmptyFill + (FullFill - EmptyFill) * health);

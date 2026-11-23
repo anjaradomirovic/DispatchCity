@@ -65,6 +65,7 @@ public static class SpriteShaders
         }
         """;
 
+    // Zrak je najjači u pravcu rotacije, a širina mu se podešava stepenom u pow(..., 8.0) (veći broj = uži zrak).
     // Rotirajuće svetlo sirene: crveni zrak i plavi zrak (jedan naspram drugog) kruže oko sredine,
     // a u sredini je jezgro koje menja boju. Ugao zraka zavisi od vremena (uTime).
     public const string SirenFragment = """
@@ -80,7 +81,6 @@ public static class SpriteShaders
             float angle = atan(p.y, p.x);
             float rotation = uTime * uSpeed;
 
-            // Zrak je najjači u pravcu rotacije, a širina mu se podešava stepenom (veći = uži).
             float redBeam = pow(max(cos(angle - rotation), 0.0), 8.0);
             float blueBeam = pow(max(cos(angle - rotation - 3.14159265), 0.0), 8.0);
             float falloff = 1.0 - smoothstep(0.05, 1.0, distanceFromCenter);

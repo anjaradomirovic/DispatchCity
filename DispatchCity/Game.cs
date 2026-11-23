@@ -60,6 +60,7 @@ public class Game : GameWindow
     protected override void OnUpdateFrame(FrameEventArgs e)
     {
         base.OnUpdateFrame(e);
+        HandleCameraKeys((float)e.Time);
         _world.Update((float)e.Time);
     }
 
@@ -92,17 +93,36 @@ public class Game : GameWindow
     protected override void OnKeyDown(KeyboardKeyEventArgs e)
     {
         base.OnKeyDown(e);
-        if (e.Key == Keys.Space)
+
+        switch (e.Key)
         {
-            _world.IsPaused = !_world.IsPaused;
-        }
-        else if (e.Key == Keys.H && _renderer != null)
-        {
-            _renderer.Options.ShowHeatMap = !_renderer.Options.ShowHeatMap;
-        }
-        else if (e.Key == Keys.G && _renderer != null)
-        {
-            _renderer.Options.ShowTraffic = !_renderer.Options.ShowTraffic;
+            case Keys.Space:
+                _world.IsPaused = !_world.IsPaused;
+                break;
+            case Keys.H:
+                if (_renderer != null) _renderer.Options.ShowHeatMap = !_renderer.Options.ShowHeatMap;
+                break;
+            case Keys.G:
+                if (_renderer != null) _renderer.Options.ShowTraffic = !_renderer.Options.ShowTraffic;
+                break;
+            case Keys.D1:
+                _world.SpeedMultiplier = 1f;
+                break;
+            case Keys.D2:
+                _world.SpeedMultiplier = 2f;
+                break;
+            case Keys.D3:
+                _world.SpeedMultiplier = 4f;
+                break;
+            case Keys.Tab:
+                CycleDispatchMode();
+                break;
+            case Keys.Enter:
+                DispatchNow();
+                break;
+            case Keys.Escape:
+                Close();
+                break;
         }
     }
 
@@ -135,5 +155,69 @@ public class Game : GameWindow
         _imgui?.Dispose();
         _renderer?.Dispose();
         base.OnUnload();
+    }
+    private const float CameraKeySpeed = 500f;   // pikseli u sekundi
+
+    // Kamera se pomera dok je taster pritisnut: pomeraj = brzina * dt (isto kao kretanje u terminu 4).
+    private void HandleCameraKeys(float deltaSeconds)
+    {
+        if (_renderer == null)
+        {
+            return;
+        }
+
+        float dx = 0f;
+        float dy = 0f;
+        if (KeyboardState.IsKeyDown(Keys.A) || KeyboardState.IsKeyDown(Keys.Left)) dx -= 1f;
+        if (KeyboardState.IsKeyDown(Keys.D) || KeyboardState.IsKeyDown(Keys.Right)) dx += 1f;
+        if (KeyboardState.IsKeyDown(Keys.W) || KeyboardState.IsKeyDown(Keys.Up)) dy -= 1f;
+        if (KeyboardState.IsKeyDown(Keys.S) || KeyboardState.IsKeyDown(Keys.Down)) dy += 1f;
+
+        if (dx != 0f || dy != 0f)
+        {
+            // Pan pomera svet suprotno od pomeraja, pa se znak okreće.
+            _renderer.Camera.Pan(new System.Numerics.Vector2(-dx, -dy) * CameraKeySpeed * deltaSeconds);
+        }
+
+        float zoom = 0f;
+        if (KeyboardState.IsKeyDown(Keys.E)) zoom += 1f;
+        if (KeyboardState.IsKeyDown(Keys.Q)) zoom -= 1f;
+
+        if (zoom != 0f)
+        {
+            var mapCenter = new System.Numerics.Vector2((ClientSize.X - PanelWidth(ClientSize.X)) / 2f, ClientSize.Y / 2f);
+            _renderer.Camera.ZoomAt(mapCenter, MathF.Pow(2f, zoom * deltaSeconds));
+        }
+    }
+
+    // Ručno -> prva strategija -> druga strategija -> ručno.
+    private void CycleDispatchMode()
+    {
+        var strategies = _world.Strategies;
+        int current = -1;
+        for (int i = 0; i < strategies.Count; i++)
+        {
+            if (strategies[i] == _world.AutoDispatch)
+            {
+                current = i;
+            }
+        }
+
+        _world.AutoDispatch = current + 1 < strategies.Count ? strategies[current + 1] : null;
+    }
+
+    // Jedan potez strategije odmah, i kad je izabrano ručno.
+    private void DispatchNow()
+    {
+        if (_world.Strategies.Count == 0)
+        {
+            return;
+        }
+
+        var strategy = _world.AutoDispatch ?? _world.Strategies[0];
+        foreach (AssignAmbulanceCommand command in strategy.Decide(_world))
+        {
+            _world.Execute(command);
+        }
     }
 }

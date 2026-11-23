@@ -44,6 +44,20 @@ public static class PlaceholderSprites
         return Texture2D.FromPixels(Cell, Cell, pixels);
     }
 
+    // Drvo: smeđe deblo i tri zelena kruga (krošnja). Jedna sličica 128 x 128.
+    public static Texture2D CreateTree()
+    {
+        byte[] pixels = new byte[Cell * Cell * 4];
+
+        FillRect(pixels, Cell, 58, 84, 70, 122, (110, 80, 55));            // deblo
+        FillCircle(pixels, Cell, 64, 52, 34, (60, 130, 70));               // krošnja
+        FillCircle(pixels, Cell, 42, 72, 24, (70, 145, 80));
+        FillCircle(pixels, Cell, 86, 72, 24, (70, 145, 80));
+        FillCircle(pixels, Cell, 56, 44, 14, (95, 170, 100));              // svetliji deo
+
+        return Texture2D.FromPixels(Cell, Cell, pixels);
+    }
+
     // frame = kolona (0 do 3), row = 0 stabilna / 1 kritična.
     private static void DrawGrandma(byte[] pixels, int width, int originX, int originY, int frame, int row)
     {

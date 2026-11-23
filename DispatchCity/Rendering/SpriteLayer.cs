@@ -18,8 +18,10 @@ public class SpriteLayer : IRenderLayer
     // Svaki lik (patient_1.png, patient_2.png...) je atlas sa ovim brojem kolona i redova.
     // Veličina slike u pikselima je nebitna, bitno je samo koliko je sličica u mreži.
     // Red 0 = stabilan pacijent, red 1 = kritičan. Brzina animacije je broj sličica u sekundi.
-    private const int PatientColumns = 4;
-    private const int PatientRows = 2;
+    // Tvoji crteži imaju jednu sličicu po liku, pa su oba broja 1. Tada se pokret (ljuljanje i
+    // poskakivanje) dodaje iz koda. Ako jednog dana nacrtaš više sličica, stavi 4 i 2.
+    private const int PatientColumns = 1;
+    private const int PatientRows = 1;
     private const float FramesPerSecond = 6f;
 
     // Svetlo sirene: brzina rotacije (radijani u sekundi, 6 = skoro jedan krug u sekundi)
@@ -137,6 +139,25 @@ public class SpriteLayer : IRenderLayer
         _tree.Dispose();
     }
 
+    // Pacijent je "pokupljen" kad je vozilo stiglo (počelo zbrinjavanje) ili kad mu je došlo dovoljno
+    // blizu da ga slika ambulante prekrije. Rastojanje je pola dužine slike ambulante.
+    private bool IsPickedUp(EmergencyCall call, WorldMetrics metrics)
+    {
+        if (call.Patient.IsBeingTreated)
+        {
+            return true;
+        }
+
+        Ambulance? ambulance = call.AssignedAmbulance;
+        if (ambulance == null)
+        {
+            return false;
+        }
+
+        float coverDistance = metrics.AmbulanceRadius * AmbulanceScale * 0.5f;
+        return Vector2.Distance(ambulance.Position, call.Location.Position) < coverDistance;
+    }
+
     // Faza pulsa (0 do 1) se čuva za svaki poziv i povećava se brzinom koja zavisi od zdravlja.
     // Pauza je zaustavlja, a brzina igre je ubrzava, isto kao i ostalo u svetu.
     private void AdvancePulses(float deltaSeconds)
@@ -167,7 +188,7 @@ public class SpriteLayer : IRenderLayer
 
         foreach (EmergencyCall call in _world.Calls)
         {
-            if (call.Patient.IsBeingTreated || !_pulsePhases.TryGetValue(call.Id, out float phase))
+            if (IsPickedUp(call, metrics) || !_pulsePhases.TryGetValue(call.Id, out float phase))
             {
                 continue;
             }
@@ -235,6 +256,12 @@ public class SpriteLayer : IRenderLayer
     {
         foreach (EmergencyCall call in _world.Calls)
         {
+            // Pacijent nestaje čim ga ambulanta pokrije (ne tek kad stigne u središte raskrsnice).
+            if (IsPickedUp(call, metrics))
+            {
+                continue;
+            }
+
             Texture2D atlas = _patients[call.Id % _patients.Count];
             atlas.Bind(TextureUnit.Texture0);
 
@@ -248,7 +275,23 @@ public class SpriteLayer : IRenderLayer
             float size = metrics.CallBaseRadius * ScaleOf(call.Priority) * PatientScale;
             float aspect = AspectOf(atlas, PatientColumns, PatientRows);
 
-            DrawQuad(_spriteShader, call.Location.Position, size, aspect, 0f, column, row, PatientColumns, PatientRows);
+            Vector2 position = call.Location.Position;
+            float angle = 0f;
+
+            // Jedna slika po liku: pokret dolazi iz sinusa (uTime iz termina 3), ne iz crteža.
+            // Stabilan pacijent se lagano ljulja, a kritičan brzo i jače drhti.
+            if (PatientColumns == 1)
+            {
+                bool critical = call.Patient.Health <= 0.5f;
+                float speed = critical ? 14f : 4f;
+                float tilt = critical ? 0.12f : 0.05f;        // nagib u radijanima
+                float phase = time * speed + call.Id;
+
+                angle = MathF.Sin(phase) * tilt;
+                position.Y -= MathF.Abs(MathF.Sin(phase)) * size * 0.06f;   // malo poskakuje (Y ide nadole)
+            }
+
+            DrawQuad(_spriteShader, position, size, aspect, angle, column, row, PatientColumns, PatientRows);
         }
     }
 

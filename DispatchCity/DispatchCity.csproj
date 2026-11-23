@@ -10,6 +10,8 @@
 	<ItemGroup>
 		<PackageReference Include="ImGui.NET" Version="1.91.6.1" />
 		<PackageReference Include="OpenTK" Version="4.8.2" />
+		<PackageReference Include="StbImageSharp" Version="2.27.14" />
+		<None Update="assets\**" CopyToOutputDirectory="PreserveNewest" />
 	</ItemGroup>
 
 	<ItemGroup>
