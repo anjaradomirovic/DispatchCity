@@ -8,9 +8,13 @@ namespace DispatchCity.Config;
 public class WorldMetrics
 {
     // Širina ulice (razmer prema jedinici).
-    private const float LocalWidth = 0.067f;
-    private const float MainWidth = 0.107f;
-    private const float AvenueWidth = 0.16f;
+    private const float LocalWidth = 0.09f;
+    private const float MainWidth = 0.14f;
+    private const float AvenueWidth = 0.22f;
+
+    // Tamna ivica sa svake strane ulice, i položaj trake na avenijama (razmer širine ulice od sredine).
+    private const float BorderWidth = 0.02f;
+    private const float LaneCenterRatio = 0.25f;
 
     // Brzina ulice (jedinica mere u sekundi).
     private const float LocalSpeed = 0.107f;
@@ -65,6 +69,17 @@ public class WorldMetrics
     public float JamRadiusMax
     {
         get { return 3f * Unit; }
+    }
+
+    public float RoadBorder
+    {
+        get { return BorderWidth * Unit; }
+    }
+
+    // Koliko je sredina trake pomerena od sredine ulice (avenija ima dve trake).
+    public float LaneOffset(RoadType type)
+    {
+        return RoadWidth(type) * LaneCenterRatio;
     }
 
     public float RoadWidth(RoadType type)

@@ -22,6 +22,9 @@ public class GameConfig
         get { return Metrics.WorldMargin; }
     }
 
+    // Strana kojom vozila voze na avenijama (samo crtanje). Srbija vozi desnom stranom: stavi false.
+    public bool DriveOnLeft { get; set; } = true;
+
     // Najmanje rastojanje između raskrsnica (manje = gušći grad).
     public float Spacing { get; set; } = 75f;
 

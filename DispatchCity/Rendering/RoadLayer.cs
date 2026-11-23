@@ -51,9 +51,13 @@ public class RoadLayer : IRenderLayer
         }
 
         // Redosled crtanja: ono što je kasnije, nalazi se preko prethodnog.
-        AddRoadsOfType(graph, RoadType.Local, edgeIndex, data);
-        AddRoadsOfType(graph, RoadType.Main, edgeIndex, data);
-        AddRoadsOfType(graph, RoadType.Avenue, edgeIndex, data);
+        // Prvo tamne ivice svih ulica, pa tek onda ispune, da se ivice ne vide na raskrsnicama.
+        AddRoadsOfType(graph, RoadType.Local, edgeIndex, data, true);
+        AddRoadsOfType(graph, RoadType.Main, edgeIndex, data, true);
+        AddRoadsOfType(graph, RoadType.Avenue, edgeIndex, data, true);
+        AddRoadsOfType(graph, RoadType.Local, edgeIndex, data, false);
+        AddRoadsOfType(graph, RoadType.Main, edgeIndex, data, false);
+        AddRoadsOfType(graph, RoadType.Avenue, edgeIndex, data, false);
         AddOneWayArrows(graph, data);
 
         float[] array = data.ToArray();
@@ -182,10 +186,11 @@ public class RoadLayer : IRenderLayer
         return time / max;
     }
 
-    private void AddRoadsOfType(CityGraph graph, RoadType type, Dictionary<Edge, int> edgeIndex, List<float> data)
+    // border = true crta tamnu ivicu (šire telo ulice, bez veze sa vrelinom i gužvom).
+    private void AddRoadsOfType(CityGraph graph, RoadType type, Dictionary<Edge, int> edgeIndex, List<float> data, bool border)
     {
-        Vector3 color = Palette.RoadColor(type);
-        float width = WidthOf(type);
+        Vector3 color = border ? Palette.RoadBorder : Palette.RoadColor(type);
+        float width = WidthOf(type) + (border ? 2f * _metrics.RoadBorder : 0f);
 
         foreach (Edge edge in graph.Edges)
         {
@@ -202,11 +207,11 @@ public class RoadLayer : IRenderLayer
                 continue;
             }
 
-            float index = edgeIndex[edge];
+            float index = border ? None : edgeIndex[edge];
 
-            AddQuad(edge, width, color, index, data);
-            AddCircle(edge.From, width / 2f, color, index, data);
-            AddCircle(edge.To, width / 2f, color, index, data);
+            AddQuad(edge, width, color, index, border, data);
+            AddCircle(edge.From, width / 2f, color, index, border, data);
+            AddCircle(edge.To, width / 2f, color, index, border, data);
         }
     }
 
@@ -235,7 +240,7 @@ public class RoadLayer : IRenderLayer
 
     // Vrhovi na početku ulice nose raskrsnicu početka, a na kraju raskrsnicu kraja.
     // GPU između njih glatko prelazi, pa se vidi kako vreme raste duž ulice.
-    private void AddQuad(Edge edge, float width, Vector3 color, float edgeIndex, List<float> data)
+    private void AddQuad(Edge edge, float width, Vector3 color, float edgeIndex, bool border, List<float> data)
     {
         Vector2 from = edge.From.Position;
         Vector2 to = edge.To.Position;
@@ -247,8 +252,8 @@ public class RoadLayer : IRenderLayer
         Vector2 c = to - normal;
         Vector2 d = to + normal;
 
-        float nodeFrom = edge.From.Id;
-        float nodeTo = edge.To.Id;
+        float nodeFrom = border ? None : edge.From.Id;
+        float nodeTo = border ? None : edge.To.Id;
 
         AddVertex(a, color, nodeFrom, edgeIndex, data);
         AddVertex(b, color, nodeFrom, edgeIndex, data);
@@ -259,10 +264,10 @@ public class RoadLayer : IRenderLayer
         AddVertex(d, color, nodeTo, edgeIndex, data);
     }
 
-    private void AddCircle(Node node, float radius, Vector3 color, float edgeIndex, List<float> data)
+    private void AddCircle(Node node, float radius, Vector3 color, float edgeIndex, bool border, List<float> data)
     {
         Vector2 center = node.Position;
-        float nodeIndex = node.Id;
+        float nodeIndex = border ? None : node.Id;
 
         for (int i = 0; i < CircleSegments; i++)
         {

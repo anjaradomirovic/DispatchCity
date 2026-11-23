@@ -1,4 +1,5 @@
-﻿using DispatchCity.Rendering;
+﻿using DispatchCity.Core;
+using DispatchCity.Rendering;
 using DispatchCity.Simulation;
 using DispatchCity.Simulation.Dispatch;
 using ImGuiNET;
@@ -46,6 +47,8 @@ public class SidePanel
             DrawCalls(world);
             ImGui.Spacing();
             DrawAmbulances(world);
+            ImGui.Spacing();
+            DrawLegend();
         }
         ImGui.End();
     }
@@ -252,6 +255,78 @@ public class SidePanel
                 SendToSelectedCall(world, ambulance);
             }
         }
+    }
+
+    // Legenda: šta znače boje i veličine na mapi. Boje se uzimaju iz Palette, iste kao na mapi,
+    // a veličine su razmeri veličine slova.
+    private static void DrawLegend()
+    {
+        if (!ImGui.CollapsingHeader("Legenda", ImGuiTreeNodeFlags.DefaultOpen))
+        {
+            return;
+        }
+
+        float font = ImGui.GetFontSize();
+
+        LegendRow(font, Palette.CallRing(InjurySeverity.Heavy), "Prsten: teska povreda", CircleSwatch);
+        LegendRow(font, Palette.CallRing(InjurySeverity.Light), "Prsten: laka povreda", CircleSwatch);
+        LegendRow(font, Palette.HealthColor(1f), "Ispuna: pacijent stabilan", CircleSwatch);
+        LegendRow(font, Palette.HealthColor(0f), "Ispuna: pacijent kritican", CircleSwatch);
+
+        // Veličina kruga je prioritet: tri kruga rastuće veličine.
+        DrawPrioritySizes(font);
+
+        LegendRow(font, Palette.HospitalRing, "Bolnica", CircleSwatch);
+        LegendRow(font, Palette.Ambulance, "Vozilo", CircleSwatch);
+        LegendRow(font, Palette.RoadColor(RoadType.Avenue), "Avenija (brza)", RoadSwatch);
+        LegendRow(font, Palette.RoadColor(RoadType.Main), "Glavna ulica", RoadSwatch);
+        LegendRow(font, Palette.RoadColor(RoadType.Local), "Lokalna ulica (spora)", RoadSwatch);
+        LegendRow(font, Palette.JamMid, "Guzva: umerena", RoadSwatch);
+        LegendRow(font, Palette.JamHigh, "Guzva: jaka", RoadSwatch);
+    }
+
+    private delegate void SwatchDrawer(ImDrawListPtr draw, System.Numerics.Vector2 start, float size, uint color);
+
+    private static void CircleSwatch(ImDrawListPtr draw, System.Numerics.Vector2 start, float size, uint color)
+    {
+        draw.AddCircleFilled(new System.Numerics.Vector2(start.X + size / 2f, start.Y + size / 2f), size / 2f, color);
+    }
+
+    private static void RoadSwatch(ImDrawListPtr draw, System.Numerics.Vector2 start, float size, uint color)
+    {
+        float inset = size * 0.3f;
+        draw.AddRectFilled(new System.Numerics.Vector2(start.X, start.Y + inset),
+            new System.Numerics.Vector2(start.X + size, start.Y + size - inset), color);
+    }
+
+    private static void LegendRow(float font, System.Numerics.Vector3 color, string text, SwatchDrawer swatch)
+    {
+        System.Numerics.Vector2 start = ImGui.GetCursorScreenPos();
+        swatch(ImGui.GetWindowDrawList(), start, font, ColorOf(color));
+        ImGui.Dummy(new System.Numerics.Vector2(font, font));
+        ImGui.SameLine();
+        ImGui.Text(text);
+    }
+
+    private static void DrawPrioritySizes(float font)
+    {
+        // Najveći krug je visok prioritet; svaki sledeći je manji za isti razmer.
+        float[] ratios = { 1f, 0.75f, 0.5f };
+        ImDrawListPtr draw = ImGui.GetWindowDrawList();
+        System.Numerics.Vector2 start = ImGui.GetCursorScreenPos();
+        uint color = ColorOf(Palette.CallRing(InjurySeverity.Light));
+
+        float x = start.X;
+        for (int i = 0; i < ratios.Length; i++)
+        {
+            float diameter = font * ratios[i];
+            draw.AddCircleFilled(new System.Numerics.Vector2(x + font / 2f, start.Y + font / 2f), diameter / 2f, color);
+            x += font * 1.1f;
+        }
+
+        ImGui.Dummy(new System.Numerics.Vector2(x - start.X, font));
+        ImGui.SameLine();
+        ImGui.Text("Velicina: prioritet");
     }
 
     // Isti Command koji koristi i automatska strategija, samo ga ovde pravi igrac.

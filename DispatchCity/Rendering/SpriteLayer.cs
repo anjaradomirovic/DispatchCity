@@ -303,7 +303,7 @@ public class SpriteLayer : IRenderLayer
         foreach (Ambulance ambulance in _world.Ambulances)
         {
             float size = metrics.AmbulanceRadius * AmbulanceScale;
-            DrawQuad(_spriteShader, ambulance.Position, size, AspectOf(_ambulance, 1, 1), ambulance.Heading, 0, 0, 1, 1);
+            DrawQuad(_spriteShader, Lanes.PositionOf(ambulance, _world), size, AspectOf(_ambulance, 1, 1), ambulance.Heading, 0, 0, 1, 1);
         }
     }
 
@@ -324,7 +324,7 @@ public class SpriteLayer : IRenderLayer
             }
 
             float size = metrics.AmbulanceRadius * AmbulanceScale * SirenSize;
-            DrawQuad(_sirenShader, ambulance.Position, size, 1f, 0f, 0, 0, 1, 1);
+            DrawQuad(_sirenShader, Lanes.PositionOf(ambulance, _world), size, 1f, 0f, 0, 0, 1, 1);
         }
     }
 

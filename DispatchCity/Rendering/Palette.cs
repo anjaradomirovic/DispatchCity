@@ -87,6 +87,44 @@ public static class Palette
         get { return FromHex(0xFFFFFF); }
     }
 
+    // Tamna ivica oko ulica, da se jasno vide na pozadini.
+    public static Vector3 RoadBorder
+    {
+        get { return FromHex(0x3B3733); }
+    }
+
+    // Pozadina (teren ispod ulica).
+    public static Vector3 Grass
+    {
+        get { return FromHex(0xDCE8C4); }
+    }
+
+    public static Vector3 Forest
+    {
+        get { return FromHex(0xC3D9A8); }
+    }
+
+    public static Vector3 Water
+    {
+        get { return FromHex(0xB5D6E3); }
+    }
+
+    public static Vector3 Shore
+    {
+        get { return FromHex(0xEFE6C8); }
+    }
+
+    // Završna obrada: vinjeta pri porazu i sjaj pri spašenom pacijentu.
+    public static Vector3 VignetteRed
+    {
+        get { return FromHex(0xC8402F); }
+    }
+
+    public static Vector3 GlowWarm
+    {
+        get { return FromHex(0x5A4A22); }
+    }
+
     private static Vector3 FromHex(int rgb)
     {
         float r = ((rgb >> 16) & 0xFF) / 255f;

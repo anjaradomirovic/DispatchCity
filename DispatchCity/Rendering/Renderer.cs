@@ -14,6 +14,8 @@ public class Renderer : IDisposable
     private int _mapHeight;
     private Shader? _flatShader;
     private Shader? _instancedShader;
+    private PostProcessPass? _post;
+    private PostEffects? _effects;
 
     public Camera2D Camera { get; }
 
@@ -42,7 +44,12 @@ public class Renderer : IDisposable
         _flatShader = new Shader(ShaderSources.FlatVertex, ShaderSources.RoadFragment);
         _instancedShader = new Shader(ShaderSources.InstancedVertex, ShaderSources.Fragment);
 
+        // Cela mapa se crta u teksturu (FBO), pa je završni prolaz obrađuje i prikazuje.
+        _post = new PostProcessPass(_mapWidth, _mapHeight);
+        _effects = new PostEffects(_world);
+
         // Redosled je redosled crtanja: ono što je kasnije, nalazi se preko prethodnog.
+        _layers.Add(new GroundLayer());
         _layers.Add(new RoadLayer(_flatShader, Options));
         _layers.Add(new HospitalLayer(_instancedShader));
         _layers.Add(new CallLayer(_instancedShader));
@@ -58,14 +65,16 @@ public class Renderer : IDisposable
     {
         // Mapa zauzima samo svoj deo prozora (ostalo je panel). ImGui posle ovoga
         // postavlja ceo prozor, pa se viewport mora postaviti svaki frame.
-        GL.Viewport(0, 0, _mapWidth, _mapHeight);
-        GL.Clear(ClearBufferMask.ColorBufferBit);
+        _effects!.Update();
+        _post!.Begin();
 
         foreach (IRenderLayer layer in _layers)
         {
             layer.Update(_world);
             layer.Render(Camera);
         }
+
+        _post.End(Camera, _effects);
     }
 
     // Veličina dela prozora u kome se crta mapa (bez panela).
@@ -74,6 +83,7 @@ public class Renderer : IDisposable
         _mapWidth = mapWidth;
         _mapHeight = mapHeight;
         Camera.SetViewport(mapWidth, mapHeight);
+        _post?.Resize(mapWidth, mapHeight);
     }
 
     public void Dispose()
@@ -83,5 +93,7 @@ public class Renderer : IDisposable
             layer.Dispose();
         }
         _layers.Clear();
+        _post?.Dispose();
+        _effects?.Dispose();
     }
 }

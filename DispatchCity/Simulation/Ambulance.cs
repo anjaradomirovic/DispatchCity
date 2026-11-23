@@ -45,6 +45,12 @@ public class Ambulance
         get { return _pathIndex >= _path.Count; }
     }
 
+    // Ulica kojom vozilo trenutno vozi (null kad je stiglo na kraj putanje).
+    public Edge? CurrentEdge
+    {
+        get { return HasArrived ? null : _path[_pathIndex]; }
+    }
+
     // Tačka na mapi, računa se iz ulice i pređenog puta.
     public Vector2 Position
     {
