@@ -46,7 +46,7 @@ public class Renderer : IDisposable
         _layers.Add(new RoadLayer(_flatShader, Options));
         _layers.Add(new HospitalLayer(_instancedShader));
         _layers.Add(new CallLayer(_instancedShader));
-        _layers.Add(new AmbulanceLayer(_instancedShader));
+        _layers.Add(new SpriteLayer());
 
         foreach (IRenderLayer layer in _layers)
         {

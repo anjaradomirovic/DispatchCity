@@ -12,4 +12,9 @@
 		<PackageReference Include="OpenTK" Version="4.8.2" />
 	</ItemGroup>
 
+	<ItemGroup>
+		<PackageReference Include="StbImageSharp" Version="2.27.14" />
+		<None Update="assets\**" CopyToOutputDirectory="PreserveNewest" />
+	</ItemGroup>
+
 </Project>

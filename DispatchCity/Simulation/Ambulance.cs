@@ -69,7 +69,22 @@ public class Ambulance
         _pathfinder = pathfinder;
         State = new IdleState();
     }
+    private float _lastHeading;
 
+    // Ugao pravca vožnje u radijanima (atan2 pravca ulice). Kad stoji, pamti poslednji.
+    public float Heading
+    {
+        get
+        {
+            if (!HasArrived)
+            {
+                Edge edge = _path[_pathIndex];
+                Vector2 direction = edge.To.Position - edge.From.Position;
+                _lastHeading = MathF.Atan2(direction.Y, direction.X);
+            }
+            return _lastHeading;
+        }
+    }
     public void ChangeState(IAmbulanceState state)
     {
         State = state;
