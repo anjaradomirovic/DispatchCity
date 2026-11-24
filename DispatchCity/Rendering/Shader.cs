@@ -7,6 +7,9 @@ public class Shader
 {
     public int Handle { get; private set; }
 
+    // Lokacija uniforme se traži po imenu samo prvi put, posle se pamti.
+    private readonly Dictionary<string, int> _locations = new Dictionary<string, int>();
+
     public Shader(string vertexSource, string fragmentSource)
     {
         int vertex = Compile(ShaderType.VertexShader, vertexSource);
@@ -37,7 +40,7 @@ public class Shader
     // Ta dva "obrta" se poklapaju, pa se matrica šalje bez transponovanja.
     public void SetMatrix(string name, System.Numerics.Matrix4x4 m)
     {
-        int location = GL.GetUniformLocation(Handle, name);
+        int location = Location(name);
         float[] values =
         {
             m.M11, m.M12, m.M13, m.M14,
@@ -50,32 +53,42 @@ public class Shader
 
     public void SetInt(string name, int value)
     {
-        int location = GL.GetUniformLocation(Handle, name);
+        int location = Location(name);
         GL.Uniform1(location, value);
     }
 
     public void SetFloat(string name, float value)
     {
-        int location = GL.GetUniformLocation(Handle, name);
+        int location = Location(name);
         GL.Uniform1(location, value);
     }
 
     public void SetVector3(string name, System.Numerics.Vector3 value)
     {
-        int location = GL.GetUniformLocation(Handle, name);
+        int location = Location(name);
         GL.Uniform3(location, value.X, value.Y, value.Z);
     }
 
     public void SetVector2(string name, float x, float y)
     {
-        int location = GL.GetUniformLocation(Handle, name);
+        int location = Location(name);
         GL.Uniform2(location, x, y);
     }
 
     public void SetColor(string name, float r, float g, float b, float a)
     {
-        int location = GL.GetUniformLocation(Handle, name);
+        int location = Location(name);
         GL.Uniform4(location, r, g, b, a);
+    }
+
+    private int Location(string name)
+    {
+        if (!_locations.TryGetValue(name, out int location))
+        {
+            location = GL.GetUniformLocation(Handle, name);
+            _locations[name] = location;
+        }
+        return location;
     }
 
     private int Compile(ShaderType type, string source)

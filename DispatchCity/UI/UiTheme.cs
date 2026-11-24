@@ -48,6 +48,23 @@ public static class UiTheme
         style.ItemSpacing = new System.Numerics.Vector2(font * 0.5f, font * 0.5f);
         style.ScrollbarSize = font * 0.9f;
         style.GrabMinSize = font * 0.8f;
+        style.TabRounding = font * WidgetRoundingRatio;
+
+        // Boje panela: kremasta podloga, bordo i zuta (iste kao na uvodnom ekranu).
+        var colors = style.Colors;
+        colors[(int)ImGuiCol.WindowBg] = FromHex(0xF7F1E3);
+        colors[(int)ImGuiCol.Text] = FromHex(0x3A2A2E);
+        colors[(int)ImGuiCol.Button] = FromHex(0xF2C230);
+        colors[(int)ImGuiCol.ButtonHovered] = FromHex(0xF8D65A);
+        colors[(int)ImGuiCol.ButtonActive] = FromHex(0xE0AE1A);
+        colors[(int)ImGuiCol.Header] = FromHex(0xE9D9B8);
+        colors[(int)ImGuiCol.HeaderHovered] = FromHex(0xF2C230);
+        colors[(int)ImGuiCol.HeaderActive] = FromHex(0xE0AE1A);
+        colors[(int)ImGuiCol.CheckMark] = FromHex(0x6D1A2E);
+        colors[(int)ImGuiCol.FrameBg] = FromHex(0xEADFC8);
+        colors[(int)ImGuiCol.Tab] = FromHex(0xE9D9B8);
+        colors[(int)ImGuiCol.TabHovered] = FromHex(0xF8D65A);
+        colors[(int)ImGuiCol.TabSelected] = FromHex(0xF2C230);
     }
 
     public static System.Numerics.Vector4 FromHex(int hex)

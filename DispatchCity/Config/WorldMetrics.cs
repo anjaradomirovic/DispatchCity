@@ -1,4 +1,5 @@
 ﻿using DispatchCity.Core;
+using DispatchCity.Simulation;
 
 namespace DispatchCity.Config;
 
@@ -20,6 +21,11 @@ public class WorldMetrics
     private const float LocalSpeed = 0.107f;
     private const float MainSpeed = 0.173f;
     private const float AvenueSpeed = 0.267f;
+
+    // Veličina poziva po prioritetu (razmer prema CallBaseRadius).
+    private const float LowCallScale = 0.8f;
+    private const float MediumCallScale = 1.0f;
+    private const float HighCallScale = 1.3f;
 
     public float Unit { get; }
 
@@ -54,10 +60,24 @@ public class WorldMetrics
         get { return 0.04f * Unit; }
     }
 
-    // Poluprečnik poziva srednjeg prioriteta. Ostali se skaliraju razmerom (vidi CallLayer).
+    // Poluprečnik poziva srednjeg prioriteta. Ostali se skaliraju razmerom (vidi CallRadius).
     public float CallBaseRadius
     {
         get { return 0.13f * Unit; }
+    }
+
+    // Poluprečnik poziva za dati prioritet. Koriste ga i krug i slika, da uvek budu iste veličine.
+    public float CallRadius(Priority priority)
+    {
+        switch (priority)
+        {
+            case Priority.High:
+                return CallBaseRadius * HighCallScale;
+            case Priority.Low:
+                return CallBaseRadius * LowCallScale;
+            default:
+                return CallBaseRadius * MediumCallScale;
+        }
     }
 
     // Poluprečnik oblasti zahvaćene gužvom (u jedinicama mere).

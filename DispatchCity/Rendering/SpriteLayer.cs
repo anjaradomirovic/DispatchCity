@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using System.Numerics;
+﻿using System.Numerics;
 using DispatchCity.Config;
 using DispatchCity.Simulation;
 using OpenTK.Graphics.OpenGL4;
@@ -15,13 +14,7 @@ public class SpriteLayer : IRenderLayer
     private const float AmbulanceScale = 3.0f;
     private const float PatientScale = 2.2f;
 
-    // Svaki lik (patient_1.png, patient_2.png...) je atlas sa ovim brojem kolona i redova.
-    // Veličina slike u pikselima je nebitna, bitno je samo koliko je sličica u mreži.
-    // Red 0 = stabilan pacijent, red 1 = kritičan. Brzina animacije je broj sličica u sekundi.
-    // Tvoji crteži imaju jednu sličicu po liku, pa su oba broja 1. Tada se pokret (ljuljanje i
-    // poskakivanje) dodaje iz koda. Ako jednog dana nacrtaš više sličica, stavi 4 i 2.
-    private const int PatientColumns = 1;
-    private const int PatientRows = 1;
+    // Brzina animacije atlasa: sličica u sekundi (koristi se samo kad lik ima više sličica).
     private const float FramesPerSecond = 6f;
 
     // Svetlo sirene: brzina rotacije (radijani u sekundi, 6 = skoro jedan krug u sekundi)
@@ -40,22 +33,18 @@ public class SpriteLayer : IRenderLayer
 
     private readonly record struct Tree(Vector2 Position, float Size);
 
-    // Vreme za animacije teče i kad je igra pauzirana.
-    private readonly Stopwatch _clock = Stopwatch.StartNew();
-
     private GameWorld _world = null!;       // postavlja se u Initialize
     private Shader _spriteShader = null!;
     private Shader _sirenShader = null!;
     private Shader _pulseShader = null!;
     private readonly Dictionary<int, float> _pulsePhases = new Dictionary<int, float>();
-    private float _previousTime;
     private readonly List<Texture2D> _patients = new List<Texture2D>();
+    private int _patientColumns;
+    private int _patientRows;
     private Texture2D _ambulance = null!;
     private Texture2D _tree = null!;
     private readonly List<Tree> _trees = new List<Tree>();
-    private int _vao;
-    private int _vbo;
-    private int _ebo;
+    private SpriteQuad _quad = null!;
 
     public void Initialize(GameWorld world)
     {
@@ -66,32 +55,15 @@ public class SpriteLayer : IRenderLayer
         _pulseShader = new Shader(SpriteShaders.Vertex, SpriteShaders.PulseFragment);
 
         // Ako postoje tvoji crteži u assets/, koriste se oni; ako ne, privremeni iz koda.
-        string folder = Path.Combine(AppContext.BaseDirectory, "assets");
-        LoadPatients(folder);
-        _tree = Texture2D.FromFile(Path.Combine(folder, "tree.png")) ?? PlaceholderSprites.CreateTree();
+        PatientSet patients = SpriteAssets.LoadPatients();
+        _patients.AddRange(patients.Textures);
+        _patientColumns = patients.Columns;
+        _patientRows = patients.Rows;
+        _tree = SpriteAssets.LoadTree();
+        _ambulance = SpriteAssets.LoadAmbulance();
+
+        _quad = new SpriteQuad();
         CreateTrees();
-        _ambulance = Texture2D.FromFile(Path.Combine(folder, "ambulance.png")) ?? PlaceholderSprites.CreateAmbulance();
-
-        CreateQuad();
-    }
-
-    // Učitava patient_1.png, patient_2.png... dok ima fajlova. Ako nema nijednog, uzima privremeni crtež.
-    private void LoadPatients(string folder)
-    {
-        for (int i = 1; ; i++)
-        {
-            Texture2D? texture = Texture2D.FromFile(Path.Combine(folder, "patient_" + i + ".png"));
-            if (texture == null)
-            {
-                break;
-            }
-            _patients.Add(texture);
-        }
-
-        if (_patients.Count == 0)
-        {
-            _patients.Add(PlaceholderSprites.CreateGrandmaAtlas());
-        }
     }
 
     // Sve se čita pri crtanju, pa ovde nema šta da se šalje.
@@ -101,17 +73,13 @@ public class SpriteLayer : IRenderLayer
 
     public void Render(Camera2D camera)
     {
-        float time = (float)_clock.Elapsed.TotalSeconds;
+        float time = RealTime.Seconds;
         WorldMetrics metrics = _world.Config.Metrics;
 
-        // Koliko je prošlo od prošlog crtanja (ograničeno, da pulsevi ne skoče posle zastoja).
-        float deltaSeconds = Math.Min(time - _previousTime, 0.1f);
-        _previousTime = time;
-        AdvancePulses(deltaSeconds);
+        AdvancePulses(RealTime.Delta);
 
         GL.Enable(EnableCap.Blend);
         GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
-        GL.BindVertexArray(_vao);
 
         _spriteShader.Use();
         _spriteShader.SetMatrix("uViewProj", camera.ViewProjection);
@@ -128,9 +96,7 @@ public class SpriteLayer : IRenderLayer
 
     public void Dispose()
     {
-        GL.DeleteBuffer(_vbo);
-        GL.DeleteBuffer(_ebo);
-        GL.DeleteVertexArray(_vao);
+        _quad.Dispose();
         foreach (Texture2D patient in _patients)
         {
             patient.Dispose();
@@ -194,11 +160,11 @@ public class SpriteLayer : IRenderLayer
             }
 
             Vector3 color = Vector3.Lerp(new Vector3(1f, 0.2f, 0.2f), new Vector3(1f, 0.85f, 0.2f), call.Patient.Health);
-            float size = metrics.CallBaseRadius * ScaleOf(call.Priority) * PulseScale;
+            float size = metrics.CallRadius(call.Priority) * PulseScale;
 
             _pulseShader.SetVector3("uColor", color);
             _pulseShader.SetFloat("uPhase", phase);
-            DrawQuad(_pulseShader, call.Location.Position, size, 1f, 0f, 0, 0, 1, 1);
+            _quad.Draw(_pulseShader, call.Location.Position, size, 1f, 0f, 0, 0, 1, 1);
         }
 
         // Vraćamo shader za slike, jer ga ostalo crtanje očekuje.
@@ -243,11 +209,11 @@ public class SpriteLayer : IRenderLayer
     private void DrawTrees()
     {
         _tree.Bind(TextureUnit.Texture0);
-        float aspect = AspectOf(_tree, 1, 1);
+        float aspect = SpriteQuad.AspectOf(_tree, 1, 1);
 
         foreach (Tree tree in _trees)
         {
-            DrawQuad(_spriteShader, tree.Position, tree.Size, aspect, 0f, 0, 0, 1, 1);
+            _quad.Draw(_spriteShader, tree.Position, tree.Size, aspect, 0f, 0, 0, 1, 1);
         }
     }
 
@@ -266,21 +232,21 @@ public class SpriteLayer : IRenderLayer
             atlas.Bind(TextureUnit.Texture0);
 
             // Ako slika ima samo jedan red, kritični pacijent koristi isti red.
-            int row = Math.Min(call.Patient.Health > 0.5f ? 0 : 1, PatientRows - 1);
+            int row = Math.Min(call.Patient.Health > 0.5f ? 0 : 1, _patientRows - 1);
 
             // Id poziva pomera početak animacije, da svi pacijenti ne mašu u isto vreme.
-            int column = (int)(time * FramesPerSecond + call.Id) % PatientColumns;
+            int column = (int)(time * FramesPerSecond + call.Id) % _patientColumns;
 
             // Visina sličice je mera, a širina prati oblik tvoje slike (nije nužno kvadrat).
-            float size = metrics.CallBaseRadius * ScaleOf(call.Priority) * PatientScale;
-            float aspect = AspectOf(atlas, PatientColumns, PatientRows);
+            float size = metrics.CallRadius(call.Priority) * PatientScale;
+            float aspect = SpriteQuad.AspectOf(atlas, _patientColumns, _patientRows);
 
             Vector2 position = call.Location.Position;
             float angle = 0f;
 
             // Jedna slika po liku: pokret dolazi iz sinusa (uTime iz termina 3), ne iz crteža.
             // Stabilan pacijent se lagano ljulja, a kritičan brzo i jače drhti.
-            if (PatientColumns == 1)
+            if (_patientColumns == 1)
             {
                 bool critical = call.Patient.Health <= 0.5f;
                 float speed = critical ? 14f : 4f;
@@ -291,7 +257,7 @@ public class SpriteLayer : IRenderLayer
                 position.Y -= MathF.Abs(MathF.Sin(phase)) * size * 0.06f;   // malo poskakuje (Y ide nadole)
             }
 
-            DrawQuad(_spriteShader, position, size, aspect, angle, column, row, PatientColumns, PatientRows);
+            _quad.Draw(_spriteShader, position, size, aspect, angle, column, row, _patientColumns, _patientRows);
         }
     }
 
@@ -303,7 +269,7 @@ public class SpriteLayer : IRenderLayer
         foreach (Ambulance ambulance in _world.Ambulances)
         {
             float size = metrics.AmbulanceRadius * AmbulanceScale;
-            DrawQuad(_spriteShader, Lanes.PositionOf(ambulance, _world), size, AspectOf(_ambulance, 1, 1), ambulance.Heading, 0, 0, 1, 1);
+            _quad.Draw(_spriteShader, Lanes.PositionOf(ambulance, _world), size, SpriteQuad.AspectOf(_ambulance, 1, 1), ambulance.Heading, 0, 0, 1, 1);
         }
     }
 
@@ -324,72 +290,7 @@ public class SpriteLayer : IRenderLayer
             }
 
             float size = metrics.AmbulanceRadius * AmbulanceScale * SirenSize;
-            DrawQuad(_sirenShader, Lanes.PositionOf(ambulance, _world), size, 1f, 0f, 0, 0, 1, 1);
-        }
-    }
-
-    // Jedan poziv crtanja: postavi uniforme za ovaj objekat i nacrtaj kvadrat (2 trougla).
-    private void DrawQuad(Shader shader, Vector2 position, float size, float aspect, float angle, int column, int row, int columns, int rows)
-    {
-        shader.SetVector2("uPosition", position.X, position.Y);
-        shader.SetFloat("uSize", size);
-        shader.SetFloat("uAspect", aspect);
-        shader.SetFloat("uAngle", angle);
-        shader.SetVector2("uCell", column, row);
-        shader.SetVector2("uGrid", columns, rows);
-        GL.DrawElements(PrimitiveType.Triangles, 6, DrawElementsType.UnsignedInt, 0);
-    }
-
-    // Širina / visina jedne sličice u pikselima. Tako slika bilo kog oblika ne ispadne razvučena.
-    private static float AspectOf(Texture2D texture, int columns, int rows)
-    {
-        float cellWidth = texture.Width / (float)columns;
-        float cellHeight = texture.Height / (float)rows;
-        return cellWidth / cellHeight;
-    }
-
-    // Kvadrat od -0.5 do 0.5: x, y, u, v. (0, 0) u slici je gornji levi ugao.
-    private void CreateQuad()
-    {
-        float[] vertices =
-        {
-            -0.5f, -0.5f, 0f, 0f,
-             0.5f, -0.5f, 1f, 0f,
-             0.5f,  0.5f, 1f, 1f,
-            -0.5f,  0.5f, 0f, 1f,
-        };
-        uint[] indices = { 0, 1, 2, 0, 2, 3 };
-
-        _vao = GL.GenVertexArray();
-        _vbo = GL.GenBuffer();
-        _ebo = GL.GenBuffer();
-
-        GL.BindVertexArray(_vao);
-
-        GL.BindBuffer(BufferTarget.ArrayBuffer, _vbo);
-        GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeof(float), vertices, BufferUsageHint.StaticDraw);
-
-        GL.BindBuffer(BufferTarget.ElementArrayBuffer, _ebo);
-        GL.BufferData(BufferTarget.ElementArrayBuffer, indices.Length * sizeof(uint), indices, BufferUsageHint.StaticDraw);
-
-        int stride = 4 * sizeof(float);
-        GL.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, stride, 0);
-        GL.EnableVertexAttribArray(0);
-        GL.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, stride, 2 * sizeof(float));
-        GL.EnableVertexAttribArray(1);
-    }
-
-    // Isti razmeri kao u CallLayer: visok prioritet je veći, nizak manji.
-    private static float ScaleOf(Priority priority)
-    {
-        switch (priority)
-        {
-            case Priority.High:
-                return 1.3f;
-            case Priority.Low:
-                return 0.8f;
-            default:
-                return 1.0f;
+            _quad.Draw(_sirenShader, Lanes.PositionOf(ambulance, _world), size, 1f, 0f, 0, 0, 1, 1);
         }
     }
 }

@@ -6,19 +6,23 @@ using ImGuiNET;
 
 namespace DispatchCity.UI;
 
-// Kontrolni panel sa strane mape. Samo čita stanje sveta (CPU) i crta ga preko ImGui-ja.
-// Pozivi su kartice u horizontalnom nizu (traka zdravlja menja boju kako pacijent slabi),
-// a klik na karticu bira poziv. Tekst je bez dijakritika jer ih osnovni ImGui font nema.
+// Kontrolni panel sa strane mape. Samo cita stanje sveta (CPU) i crta ga preko ImGui-ja.
+// Gore je uvek ono sto treba stalno da se vidi (rezultat i vreme), a ispod su dva jezicka:
+// "Igra" (rezim, pozivi, vozila, prikaz) i "Pomoc" (komande i legenda).
+// Tekst je bez dijakritika jer ih osnovni ImGui font nema.
 public class SidePanel
 {
-    // Veličine kartice su razmeri veličine slova.
-    private const float CardWidthRatio = 9f;
-    private const float CardHeightRatio = 8f;
+    // Velicine su razmeri velicine slova, pa se panel skalira zajedno sa prozorom.
+    private const float CardWidthRatio = 10.5f;
+    private const float CardHeightRatio = 7.2f;
+    private const float VehicleCardHeightRatio = 6.6f;
+    private const float HeaderHeightRatio = 2.6f;
+    private const float BigNumberScale = 1.5f;
+    private const float TitleScale = 1.3f;
 
-    // Ponudjene brzine igre.
     private static readonly float[] SpeedOptions = { 1f, 2f, 4f };
 
-    // Izabrani poziv (UI stanje, svet za njega ne zna). Biće potreban za ručnu dodelu vozila.
+    // Izabrani poziv (UI stanje, svet za njega ne zna).
     public int? SelectedCallId { get; private set; }
 
     public void Draw(GameWorld world, ViewOptions options, float x, float width, float height)
@@ -34,31 +38,187 @@ public class SidePanel
 
         if (ImGui.Begin("Kontrolni panel", flags))
         {
-            ImGui.Text("Dispatch City");
-            ImGui.Separator();
-
-            DrawTimeControls(world);
-            DrawViewOptions(options);
-            ImGui.Spacing();
+            DrawHeader(world);
             DrawScore(world);
             ImGui.Spacing();
-            DrawControlMode(world);
+            DrawTimeControls(world);
             ImGui.Spacing();
-            DrawCalls(world);
-            ImGui.Spacing();
-            DrawAmbulances(world);
-            ImGui.Spacing();
-            DrawLegend();
+
+            if (ImGui.BeginTabBar("tabovi"))
+            {
+                if (ImGui.BeginTabItem("Igra"))
+                {
+                    DrawControlMode(world);
+                    ImGui.Spacing();
+                    DrawCalls(world);
+                    ImGui.Spacing();
+                    DrawAmbulances(world);
+                    ImGui.Spacing();
+                    DrawViewOptions(options);
+                    ImGui.EndTabItem();
+                }
+
+                if (ImGui.BeginTabItem("Pomoc"))
+                {
+                    DrawCommands();
+                    ImGui.Spacing();
+                    DrawLegend();
+                    ImGui.EndTabItem();
+                }
+                ImGui.EndTabBar();
+            }
         }
         ImGui.End();
     }
+
+    // ---------- Zaglavlje, rezultat, vreme ----------
+
+    private static void DrawHeader(GameWorld world)
+    {
+        float font = ImGui.GetFontSize();
+        ImGui.PushStyleColor(ImGuiCol.ChildBg, UiTheme.FromHex(0x6D1A2E));
+        ImGui.BeginChild("zaglavlje", new System.Numerics.Vector2(0f, font * HeaderHeightRatio),
+            ImGuiChildFlags.None, ImGuiWindowFlags.NoScrollbar);
+
+        ImGui.SetWindowFontScale(TitleScale);
+        ImGui.TextColored(UiTheme.FromHex(0xF2C230), "DISPATCH CITY");
+        ImGui.SetWindowFontScale(1f);
+
+        string progress = world.IsFinished
+            ? "KRAJ NIVOA"
+            : "Poziv " + world.CallsCreated + " / " + world.Config.CallsPerLevel;
+        ImGui.TextColored(UiTheme.FromHex(0xF7F1E3), progress);
+
+        ImGui.EndChild();
+        ImGui.PopStyleColor();
+    }
+
+    // Cetiri velika broja u redu: bodovi, spaseni, izgubljeni, prosecan odziv.
+    private static void DrawScore(GameWorld world)
+    {
+        ScoreBoard score = world.Score;
+
+        if (!ImGui.BeginTable("rezultat", 4))
+        {
+            return;
+        }
+
+        ScoreCell(score.Points.ToString(), "bodovi", UiTheme.FromHex(0x3A2A2E));
+        ScoreCell(score.Saved.ToString(), "spaseno", UiTheme.FromHex(0x3F8F4A));
+        ScoreCell(score.Lost.ToString(), "izgubljeno", UiTheme.FromHex(0xC8402F));
+        ScoreCell(score.AverageResponseSeconds.ToString("0") + " s", "odziv", UiTheme.FromHex(0x3A2A2E));
+
+        ImGui.EndTable();
+    }
+
+    private static void ScoreCell(string value, string label, System.Numerics.Vector4 color)
+    {
+        ImGui.TableNextColumn();
+        ImGui.SetWindowFontScale(BigNumberScale);
+        ImGui.TextColored(color, value);
+        ImGui.SetWindowFontScale(1f);
+        ImGui.TextDisabled(label);
+    }
+
+    // Pauza i brzina: pauza je jedno dugme, a brzine su tri dugmeta od kojih je aktivno oznaceno.
+    private static void DrawTimeControls(GameWorld world)
+    {
+        float font = ImGui.GetFontSize();
+        float available = ImGui.GetContentRegionAvail().X;
+        float spacing = ImGui.GetStyle().ItemSpacing.X;
+        int buttons = 1 + SpeedOptions.Length;
+        float buttonWidth = (available - spacing * (buttons - 1)) / buttons;
+        var size = new System.Numerics.Vector2(buttonWidth, font * 1.9f);
+
+        if (Toggle(world.IsPaused ? "Nastavi" : "Pauza", world.IsPaused, size))
+        {
+            world.IsPaused = !world.IsPaused;
+        }
+
+        for (int i = 0; i < SpeedOptions.Length; i++)
+        {
+            ImGui.SameLine();
+            float speed = SpeedOptions[i];
+            if (Toggle((int)speed + "x", world.SpeedMultiplier == speed, size))
+            {
+                world.SpeedMultiplier = speed;
+            }
+        }
+
+        if (world.IsPaused)
+        {
+            ImGui.TextColored(UiTheme.FromHex(0xC8402F), "PAUZA");
+        }
+    }
+
+    // Dugme koje je kad je ukljuceno bordo (jasno se vidi sta je izabrano), a inace zuto.
+    private static bool Toggle(string label, bool active, System.Numerics.Vector2 size)
+    {
+        if (active)
+        {
+            ImGui.PushStyleColor(ImGuiCol.Button, UiTheme.FromHex(0x6D1A2E));
+            ImGui.PushStyleColor(ImGuiCol.ButtonHovered, UiTheme.FromHex(0x85263C));
+            ImGui.PushStyleColor(ImGuiCol.ButtonActive, UiTheme.FromHex(0x55121F));
+            ImGui.PushStyleColor(ImGuiCol.Text, UiTheme.FromHex(0xF7F1E3));
+        }
+
+        bool clicked = ImGui.Button(label, size);
+
+        if (active)
+        {
+            ImGui.PopStyleColor(4);
+        }
+        return clicked;
+    }
+
+    // ---------- Rezim: rucno / automatski ----------
+
+    private static void DrawControlMode(GameWorld world)
+    {
+        ImGui.Text("Ko salje vozila");
+
+        float font = ImGui.GetFontSize();
+        float available = ImGui.GetContentRegionAvail().X;
+        float spacing = ImGui.GetStyle().ItemSpacing.X;
+        var half = new System.Numerics.Vector2((available - spacing) / 2f, font * 1.9f);
+
+        bool manual = world.AutoDispatch == null;
+        if (Toggle("Ja (rucno)", manual, half))
+        {
+            world.AutoDispatch = null;
+        }
+
+        ImGui.SameLine();
+        if (Toggle("Racunar (auto)", !manual, half) && manual && world.Strategies.Count > 0)
+        {
+            world.AutoDispatch = world.Strategies[0];
+        }
+
+        if (manual)
+        {
+            ImGui.TextDisabled("Izaberi poziv, pa klikni Posalji na vozilu.");
+            return;
+        }
+
+        ImGui.TextDisabled("Pravilo racunara:");
+        foreach (IDispatchStrategy strategy in world.Strategies)
+        {
+            bool selected = world.AutoDispatch == strategy;
+            if (Toggle(strategy.Name, selected, new System.Numerics.Vector2(available, font * 1.7f)))
+            {
+                world.AutoDispatch = strategy;
+            }
+        }
+    }
+
+    // ---------- Pozivi ----------
 
     private void DrawCalls(GameWorld world)
     {
         ImGui.Text("Pozivi (" + world.Calls.Count + ")");
 
-        // Ako izabrani poziv više ne postoji (spasen ili izgubljen), izbor se poništava.
-        if (SelectedCallId != null && !Contains(world, SelectedCallId.Value))
+        // Ako izabrani poziv vise ne postoji (spasen ili izgubljen), izbor se ponistava.
+        if (SelectedCallId != null && FindCall(world, SelectedCallId.Value) == null)
         {
             SelectedCallId = null;
         }
@@ -66,7 +226,7 @@ public class SidePanel
         float font = ImGui.GetFontSize();
         var cardSize = new System.Numerics.Vector2(font * CardWidthRatio, font * CardHeightRatio);
 
-        // Spoljni okvir se pomera horizontalno kad kartica ima više nego što staje.
+        // Spoljni okvir se pomera horizontalno kad kartica ima vise nego sto staje.
         var rowSize = new System.Numerics.Vector2(0f, cardSize.Y + font * 1.6f);
         ImGui.BeginChild("Pozivi", rowSize, ImGuiChildFlags.None, ImGuiWindowFlags.HorizontalScrollbar);
 
@@ -81,18 +241,13 @@ public class SidePanel
             {
                 ImGui.SameLine();
             }
-            DrawCard(world.Calls[i], cardSize);
+            DrawCard(world, world.Calls[i], cardSize);
         }
 
         ImGui.EndChild();
-
-        if (SelectedCallId != null)
-        {
-            ImGui.Text("Izabran poziv: #" + SelectedCallId.Value);
-        }
     }
 
-    private void DrawCard(EmergencyCall call, System.Numerics.Vector2 size)
+    private void DrawCard(GameWorld world, EmergencyCall call, System.Numerics.Vector2 size)
     {
         bool selected = SelectedCallId == call.Id;
         System.Numerics.Vector4 background = selected ? UiTheme.CardSelected : UiTheme.Card;
@@ -103,7 +258,9 @@ public class SidePanel
 
         ImGui.Text("#" + call.Id + "  " + PriorityText(call.Priority));
         ImGui.Text(SeverityText(call.Severity) + " povreda");
-        ImGui.TextDisabled(StatusText(call.Status));
+
+        // Jasno ko dolazi i za koliko: vozilo i preostalo vreme, ili poruka da niko ne dolazi.
+        DrawArrivalLine(world, call);
 
         // Traka zdravlja: boja ide od bledozute do narandzaste, iste boje kao ispuna na mapi.
         float health = call.Patient.Health;
@@ -122,41 +279,125 @@ public class SidePanel
         ImGui.PopStyleColor();
     }
 
-    // Pauza i brzina igre. Space na tastaturi radi isto kao dugme Pauza.
-    private static void DrawTimeControls(GameWorld world)
+    private static void DrawArrivalLine(GameWorld world, EmergencyCall call)
     {
-        if (ImGui.Button(world.IsPaused ? "Nastavi" : "Pauza"))
+        Ambulance? ambulance = call.AssignedAmbulance;
+
+        if (call.Status == CallStatus.Waiting || ambulance == null)
         {
-            world.IsPaused = !world.IsPaused;
+            ImGui.TextColored(UiTheme.FromHex(0xC8402F), "Ceka vozilo");
+            ImGui.TextDisabled("niko ne dolazi");
+            return;
         }
 
-        for (int i = 0; i < SpeedOptions.Length; i++)
+        int number = IndexOf(world, ambulance) + 1;
+        if (call.Status == CallStatus.Attended)
         {
+            ImGui.TextColored(UiTheme.FromHex(0x3F8F4A), "Vozilo " + number);
+            ImGui.TextDisabled("zbrinjava se");
+            return;
+        }
+
+        ImGui.TextColored(UiTheme.FromHex(0x9A6A00), "Vozilo " + number + " dolazi");
+        ImGui.Text("za " + SecondsText(ambulance.RemainingSeconds));
+    }
+
+    // ---------- Vozila ----------
+
+    private void DrawAmbulances(GameWorld world)
+    {
+        ImGui.Text("Vozila (" + world.Ambulances.Count + ")");
+
+        EmergencyCall? selected = SelectedCallId == null ? null : FindCall(world, SelectedCallId.Value);
+        bool manual = world.AutoDispatch == null;
+        float font = ImGui.GetFontSize();
+
+        for (int i = 0; i < world.Ambulances.Count; i++)
+        {
+            Ambulance ambulance = world.Ambulances[i];
+
+            ImGui.PushStyleColor(ImGuiCol.ChildBg, UiTheme.Card);
+            ImGui.BeginChild("vozilo" + i, new System.Numerics.Vector2(0f, font * VehicleCardHeightRatio),
+                ImGuiChildFlags.None, ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse);
+
+            ImGui.Text("Vozilo " + (i + 1));
             ImGui.SameLine();
-            float speed = SpeedOptions[i];
-            if (ImGui.RadioButton((int)speed + "x", world.SpeedMultiplier == speed))
-            {
-                world.SpeedMultiplier = speed;
-            }
-        }
+            ImGui.TextColored(StateColor(ambulance), StateText(ambulance));
 
-        if (world.IsPaused)
-        {
-            ImGui.TextColored(UiTheme.FromHex(0xE5634F), "PAUZA");
+            DrawTrip(ambulance);
+            DrawSendButton(world, ambulance, selected, manual);
+
+            ImGui.EndChild();
+            ImGui.PopStyleColor();
         }
     }
 
-    // Toplotna mapa: ulice obojene vremenom dolaska iz bolnice (taster H), sa legendom rampe.
+    // Za vozilo koje vozi: za koji poziv i traka putovanja sa preostalim vremenom.
+    private static void DrawTrip(Ambulance ambulance)
+    {
+        if (ambulance.IsAvailable)
+        {
+            ImGui.TextDisabled("Spremno u bolnici");
+            return;
+        }
+
+        if (ambulance.Call != null)
+        {
+            ImGui.TextDisabled("Poziv #" + ambulance.Call.Id);
+        }
+        else
+        {
+            ImGui.TextDisabled("Bez poziva");
+        }
+
+        if (ambulance.State.Name == "OnScene")
+        {
+            ImGui.TextDisabled("Na licu mesta");
+            return;
+        }
+
+        string overlay = SecondsText(ambulance.RemainingSeconds);
+        ImGui.ProgressBar(ambulance.TripProgress, new System.Numerics.Vector2(-1f, 0f), overlay);
+    }
+
+    // U rucnom rezimu: dugme za slanje ovog vozila na izabrani poziv.
+    private void DrawSendButton(GameWorld world, Ambulance ambulance, EmergencyCall? selected, bool manual)
+    {
+        if (!manual || !ambulance.IsAvailable)
+        {
+            return;
+        }
+
+        if (selected == null)
+        {
+            ImGui.TextDisabled("Izaberi poziv iznad");
+            return;
+        }
+
+        if (ImGui.Button("Posalji na #" + selected.Id + "##posalji" + IndexOf(world, ambulance),
+                new System.Numerics.Vector2(-1f, 0f)))
+        {
+            if (world.Execute(new AssignAmbulanceCommand(ambulance, selected)))
+            {
+                SelectedCallId = null;
+            }
+        }
+    }
+
+    // ---------- Prikaz ----------
+
     private static void DrawViewOptions(ViewOptions options)
     {
+        ImGui.Text("Prikaz mape");
+
         bool showTraffic = options.ShowTraffic;
-        if (ImGui.Checkbox("Guzva (G)", ref showTraffic))
+        if (ImGui.Checkbox("Guzva na ulicama (G)", ref showTraffic))
         {
             options.ShowTraffic = showTraffic;
         }
 
         bool showHeat = options.ShowHeatMap;
-        if (ImGui.Checkbox("Toplotna mapa (H)", ref showHeat))
+        if (ImGui.Checkbox("Toplotna mapa dolaska (H)", ref showHeat))
         {
             options.ShowHeatMap = showHeat;
         }
@@ -187,85 +428,44 @@ public class SidePanel
         ImGui.TextDisabled("blizu bolnice  ->  daleko");
     }
 
-    private static uint ColorOf(System.Numerics.Vector3 color)
+    // ---------- Pomoc: komande i legenda ----------
+
+    private static void DrawCommands()
     {
-        return ImGui.GetColorU32(new System.Numerics.Vector4(color.X, color.Y, color.Z, 1f));
-    }
+        ImGui.Text("Komande");
 
-    // Rezultat uzivo. Kad je nivo gotov, isti brojevi su konacan rezultat.
-    private static void DrawScore(GameWorld world)
-    {
-        ScoreBoard score = world.Score;
-
-        if (world.IsFinished)
-        {
-            ImGui.TextColored(UiTheme.FromHex(0xE5634F), "KRAJ NIVOA");
-        }
-        else
-        {
-            ImGui.Text("Poziv " + world.CallsCreated + " / " + world.Config.CallsPerLevel);
-        }
-
-        ImGui.Text("Bodovi: " + score.Points);
-        ImGui.Text("Spaseno: " + score.Saved + "   Izgubljeno: " + score.Lost);
-        ImGui.Text("Prosecan odziv: " + score.AverageResponseSeconds.ToString("0.0") + " s");
-    }
-
-    // Ko dodeljuje vozila: igrac (rucno) ili jedna od strategija.
-    private static void DrawControlMode(GameWorld world)
-    {
-        ImGui.Text("Upravljanje");
-
-        if (ImGui.RadioButton("Rucno", world.AutoDispatch == null))
-        {
-            world.AutoDispatch = null;
-        }
-
-        foreach (IDispatchStrategy strategy in world.Strategies)
-        {
-            if (ImGui.RadioButton("Auto: " + strategy.Name, world.AutoDispatch == strategy))
-            {
-                world.AutoDispatch = strategy;
-            }
-        }
-    }
-
-    // Klik na slobodno vozilo salje ga na izabrani poziv. Zauzeta vozila su zasivljena.
-    private void DrawAmbulances(GameWorld world)
-    {
-        ImGui.Text("Vozila (" + world.Ambulances.Count + ")");
-        ImGui.TextDisabled("Izaberi poziv, pa vozilo");
-
-        for (int i = 0; i < world.Ambulances.Count; i++)
-        {
-            Ambulance ambulance = world.Ambulances[i];
-
-            string label = "Vozilo " + (i + 1) + ": " + ambulance.State.Name;
-            if (ambulance.Call != null)
-            {
-                label += "  (poziv #" + ambulance.Call.Id + ")";
-            }
-
-            ImGuiSelectableFlags flags = ambulance.IsAvailable
-                ? ImGuiSelectableFlags.None
-                : ImGuiSelectableFlags.Disabled;
-
-            if (ImGui.Selectable(label + "##vozilo" + i, false, flags))
-            {
-                SendToSelectedCall(world, ambulance);
-            }
-        }
-    }
-
-    // Legenda: šta znače boje i veličine na mapi. Boje se uzimaju iz Palette, iste kao na mapi,
-    // a veličine su razmeri veličine slova.
-    private static void DrawLegend()
-    {
-        if (!ImGui.CollapsingHeader("Legenda", ImGuiTreeNodeFlags.DefaultOpen))
+        if (!ImGui.BeginTable("komande", 2))
         {
             return;
         }
 
+        CommandRow("Space", "pauza / nastavak");
+        CommandRow("1  2  3", "brzina 1x / 2x / 4x");
+        CommandRow("Tab", "promena rezima (rucno / auto)");
+        CommandRow("Enter", "dodeli vozila odmah");
+        CommandRow("G", "guzva na ulicama");
+        CommandRow("H", "toplotna mapa dolaska");
+        CommandRow("W A S D", "pomeranje kamere");
+        CommandRow("Q  E", "odzumiraj / zumiraj");
+        CommandRow("Tockic", "zum ka kursoru");
+        CommandRow("Prevlacenje", "pomeranje kamere misem");
+        CommandRow("Esc", "izlaz iz igre");
+
+        ImGui.EndTable();
+    }
+
+    private static void CommandRow(string key, string action)
+    {
+        ImGui.TableNextColumn();
+        ImGui.TextColored(UiTheme.FromHex(0x6D1A2E), key);
+        ImGui.TableNextColumn();
+        ImGui.TextWrapped(action);
+    }
+
+    // Legenda: boje se uzimaju iz Palette, iste kao na mapi, a velicine su razmeri velicine slova.
+    private static void DrawLegend()
+    {
+        ImGui.Text("Legenda");
         float font = ImGui.GetFontSize();
 
         LegendRow(font, Palette.CallRing(InjurySeverity.Heavy), "Prsten: teska povreda", CircleSwatch);
@@ -273,7 +473,6 @@ public class SidePanel
         LegendRow(font, Palette.HealthColor(1f), "Ispuna: pacijent stabilan", CircleSwatch);
         LegendRow(font, Palette.HealthColor(0f), "Ispuna: pacijent kritican", CircleSwatch);
 
-        // Veličina kruga je prioritet: tri kruga rastuće veličine.
         DrawPrioritySizes(font);
 
         LegendRow(font, Palette.HospitalRing, "Bolnica", CircleSwatch);
@@ -310,7 +509,7 @@ public class SidePanel
 
     private static void DrawPrioritySizes(float font)
     {
-        // Najveći krug je visok prioritet; svaki sledeći je manji za isti razmer.
+        // Najveci krug je visok prioritet; svaki sledeci je manji za isti razmer.
         float[] ratios = { 1f, 0.75f, 0.5f };
         ImDrawListPtr draw = ImGui.GetWindowDrawList();
         System.Numerics.Vector2 start = ImGui.GetCursorScreenPos();
@@ -329,31 +528,39 @@ public class SidePanel
         ImGui.Text("Velicina: prioritet");
     }
 
-    // Isti Command koji koristi i automatska strategija, samo ga ovde pravi igrac.
-    private void SendToSelectedCall(GameWorld world, Ambulance ambulance)
-    {
-        EmergencyCall? call = FindSelectedCall(world);
-        if (call == null)
-        {
-            return;
-        }
+    // ---------- Pomocne ----------
 
-        if (world.Execute(new AssignAmbulanceCommand(ambulance, call)))
-        {
-            SelectedCallId = null;
-        }
+    private static uint ColorOf(System.Numerics.Vector3 color)
+    {
+        return ImGui.GetColorU32(new System.Numerics.Vector4(color.X, color.Y, color.Z, 1f));
     }
 
-    private EmergencyCall? FindSelectedCall(GameWorld world)
+    private static string SecondsText(float seconds)
     {
-        if (SelectedCallId == null)
+        if (float.IsInfinity(seconds))
         {
-            return null;
+            return "--";
         }
+        return (int)MathF.Ceiling(seconds) + " s";
+    }
 
+    private static int IndexOf(GameWorld world, Ambulance ambulance)
+    {
+        for (int i = 0; i < world.Ambulances.Count; i++)
+        {
+            if (world.Ambulances[i] == ambulance)
+            {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private static EmergencyCall? FindCall(GameWorld world, int callId)
+    {
         foreach (EmergencyCall call in world.Calls)
         {
-            if (call.Id == SelectedCallId.Value)
+            if (call.Id == callId)
             {
                 return call;
             }
@@ -361,16 +568,37 @@ public class SidePanel
         return null;
     }
 
-    private static bool Contains(GameWorld world, int callId)
+    private static string StateText(Ambulance ambulance)
     {
-        foreach (EmergencyCall call in world.Calls)
+        switch (ambulance.State.Name)
         {
-            if (call.Id == callId)
-            {
-                return true;
-            }
+            case "EnRoute":
+                return "ide na poziv";
+            case "OnScene":
+                return "zbrinjava";
+            case "Transporting":
+                return "vozi pacijenta";
+            case "Returning":
+                return "vraca se";
+            default:
+                return "slobodno";
         }
-        return false;
+    }
+
+    private static System.Numerics.Vector4 StateColor(Ambulance ambulance)
+    {
+        switch (ambulance.State.Name)
+        {
+            case "EnRoute":
+                return UiTheme.FromHex(0x9A6A00);
+            case "OnScene":
+            case "Transporting":
+                return UiTheme.FromHex(0xC8402F);
+            case "Returning":
+                return UiTheme.FromHex(0x5A6E8C);
+            default:
+                return UiTheme.FromHex(0x3F8F4A);
+        }
     }
 
     private static string PriorityText(Priority priority)
@@ -389,18 +617,5 @@ public class SidePanel
     private static string SeverityText(InjurySeverity severity)
     {
         return severity == InjurySeverity.Heavy ? "Teska" : "Laka";
-    }
-
-    private static string StatusText(CallStatus status)
-    {
-        switch (status)
-        {
-            case CallStatus.Assigned:
-                return "Vozilo na putu";
-            case CallStatus.Attended:
-                return "Zbrinjava se";
-            default:
-                return "Ceka vozilo";
-        }
     }
 }

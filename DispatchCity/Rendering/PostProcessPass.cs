@@ -9,27 +9,14 @@ public class PostProcessPass : IDisposable
 {
     private readonly SceneBuffer _scene;
     private readonly Shader _shader;
-    private readonly int _vao;
-    private readonly int _vbo;
+    private readonly QuadMesh _quad;
 
     public PostProcessPass(int width, int height)
     {
         _scene = new SceneBuffer(width, height);
         _shader = new Shader(EffectShaders.PostVertex, EffectShaders.PostFragment);
 
-        float[] quad =
-        {
-            -1f, -1f,  1f, -1f,  1f, 1f,
-            -1f, -1f,  1f, 1f,  -1f, 1f,
-        };
-
-        _vao = GL.GenVertexArray();
-        _vbo = GL.GenBuffer();
-        GL.BindVertexArray(_vao);
-        GL.BindBuffer(BufferTarget.ArrayBuffer, _vbo);
-        GL.BufferData(BufferTarget.ArrayBuffer, quad.Length * sizeof(float), quad, BufferUsageHint.StaticDraw);
-        GL.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, 2 * sizeof(float), 0);
-        GL.EnableVertexAttribArray(0);
+        _quad = QuadMesh.FullScreen();
     }
 
     public void Resize(int width, int height)
@@ -70,15 +57,13 @@ public class PostProcessPass : IDisposable
         _shader.SetVector2("uGlowCenter", center.X * 0.5f + 0.5f, center.Y * 0.5f + 0.5f);
         _shader.SetFloat("uGlowRadius", MathF.Abs(edge.X - center.X) * 0.5f);
 
-        GL.BindVertexArray(_vao);
-        GL.DrawArrays(PrimitiveType.Triangles, 0, 6);
+        _quad.Draw();
     }
 
     public void Dispose()
     {
         _scene.Dispose();
-        GL.DeleteBuffer(_vbo);
-        GL.DeleteVertexArray(_vao);
+        _quad.Dispose();
         GL.DeleteProgram(_shader.Handle);
     }
 }

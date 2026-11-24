@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using System.Numerics;
+﻿using System.Numerics;
 using OpenTK.Graphics.OpenGL4;
 
 namespace DispatchCity.Rendering;
@@ -27,43 +26,27 @@ public class MenuScene : IDisposable
     private const float CloudSpeed = 0.012f;
     private const float SlatsPerHeight = 14f;
 
-    private readonly Stopwatch _clock = Stopwatch.StartNew();
     private readonly List<Texture2D> _figures = new List<Texture2D>();
-    private readonly List<(int Columns, int Rows)> _grids = new List<(int, int)>();
+    private int _figureColumns;
+    private int _figureRows;
     private Shader _background = null!;
     private Shader _sprite = null!;
-    private int _backgroundVao;
-    private int _backgroundVbo;
-    private int _spriteVao;
-    private int _spriteVbo;
-    private int _spriteEbo;
+    private QuadMesh _backgroundQuad = null!;
+    private SpriteQuad _spriteQuad = null!;
 
     public void Initialize()
     {
         _background = new Shader(MenuShaders.Vertex, MenuShaders.Fragment);
         _sprite = new Shader(SpriteShaders.Vertex, SpriteShaders.SpriteFragment);
 
-        // Isti crtezi pacijenata kao u igri (assets/patient_1.png...), ili privremeni iz koda.
-        string folder = Path.Combine(AppContext.BaseDirectory, "assets");
-        for (int i = 1; ; i++)
-        {
-            Texture2D? texture = Texture2D.FromFile(Path.Combine(folder, "patient_" + i + ".png"));
-            if (texture == null)
-            {
-                break;
-            }
-            _figures.Add(texture);
-            _grids.Add((1, 1));
-        }
+        // Isti crteži pacijenata kao u igri.
+        PatientSet patients = SpriteAssets.LoadPatients();
+        _figures.AddRange(patients.Textures);
+        _figureColumns = patients.Columns;
+        _figureRows = patients.Rows;
 
-        if (_figures.Count == 0)
-        {
-            _figures.Add(PlaceholderSprites.CreateGrandmaAtlas());
-            _grids.Add((4, 2));
-        }
-
-        CreateBackgroundQuad();
-        CreateSpriteQuad();
+        _backgroundQuad = QuadMesh.FullScreen();
+        _spriteQuad = new SpriteQuad();
     }
 
     public void Render(int width, int height)
@@ -73,7 +56,7 @@ public class MenuScene : IDisposable
             return;
         }
 
-        float time = (float)_clock.Elapsed.TotalSeconds;
+        float time = RealTime.Seconds;
         float aspect = width / (float)height;
 
         GL.Viewport(0, 0, width, height);
@@ -105,8 +88,7 @@ public class MenuScene : IDisposable
         _background.SetVector3("uTrackEdge", Palette.MenuTrackEdge);
         _background.SetVector3("uCloudColor", Palette.MenuCloud);
 
-        GL.BindVertexArray(_backgroundVao);
-        GL.DrawArrays(PrimitiveType.Triangles, 0, 6);
+        _backgroundQuad.Draw();
     }
 
     // Figure stoje na traci i klize s desna na levo. Kad izadju levo, vracaju se desno (petlja).
@@ -120,7 +102,6 @@ public class MenuScene : IDisposable
         _sprite.Use();
         _sprite.SetMatrix("uViewProj", projection);
         _sprite.SetInt("uTexture", 0);
-        GL.BindVertexArray(_spriteVao);
 
         float size = FigureHeight * height;
         float spacing = FigureSpacing * height;
@@ -142,68 +123,14 @@ public class MenuScene : IDisposable
             float lift = MathF.Abs(MathF.Sin(phase)) * size * BobAmount;
             float y = trackTop - size / 2f - lift;
 
-            int index = i % _figures.Count;
-            Texture2D texture = _figures[index];
-            (int columns, int rows) = _grids[index];
+            Texture2D texture = _figures[i % _figures.Count];
             texture.Bind(TextureUnit.Texture0);
 
-            float cellAspect = (texture.Width / (float)columns) / (texture.Height / (float)rows);
-            _sprite.SetVector2("uPosition", x, y);
-            _sprite.SetFloat("uSize", size);
-            _sprite.SetFloat("uAspect", cellAspect);
-            _sprite.SetFloat("uAngle", angle);
-            _sprite.SetVector2("uCell", 0, 0);
-            _sprite.SetVector2("uGrid", columns, rows);
-            GL.DrawElements(PrimitiveType.Triangles, 6, DrawElementsType.UnsignedInt, 0);
+            float cellAspect = SpriteQuad.AspectOf(texture, _figureColumns, _figureRows);
+            _spriteQuad.Draw(_sprite, new Vector2(x, y), size, cellAspect, angle, 0, 0, _figureColumns, _figureRows);
         }
 
         GL.Disable(EnableCap.Blend);
-    }
-
-    private void CreateBackgroundQuad()
-    {
-        float[] quad =
-        {
-            -1f, -1f,  1f, -1f,  1f, 1f,
-            -1f, -1f,  1f, 1f,  -1f, 1f,
-        };
-
-        _backgroundVao = GL.GenVertexArray();
-        _backgroundVbo = GL.GenBuffer();
-        GL.BindVertexArray(_backgroundVao);
-        GL.BindBuffer(BufferTarget.ArrayBuffer, _backgroundVbo);
-        GL.BufferData(BufferTarget.ArrayBuffer, quad.Length * sizeof(float), quad, BufferUsageHint.StaticDraw);
-        GL.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, 2 * sizeof(float), 0);
-        GL.EnableVertexAttribArray(0);
-    }
-
-    // Isti kvadrat kao u SpriteLayer: x, y, u, v.
-    private void CreateSpriteQuad()
-    {
-        float[] vertices =
-        {
-            -0.5f, -0.5f, 0f, 0f,
-             0.5f, -0.5f, 1f, 0f,
-             0.5f,  0.5f, 1f, 1f,
-            -0.5f,  0.5f, 0f, 1f,
-        };
-        uint[] indices = { 0, 1, 2, 0, 2, 3 };
-
-        _spriteVao = GL.GenVertexArray();
-        _spriteVbo = GL.GenBuffer();
-        _spriteEbo = GL.GenBuffer();
-        GL.BindVertexArray(_spriteVao);
-
-        GL.BindBuffer(BufferTarget.ArrayBuffer, _spriteVbo);
-        GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeof(float), vertices, BufferUsageHint.StaticDraw);
-        GL.BindBuffer(BufferTarget.ElementArrayBuffer, _spriteEbo);
-        GL.BufferData(BufferTarget.ElementArrayBuffer, indices.Length * sizeof(uint), indices, BufferUsageHint.StaticDraw);
-
-        int stride = 4 * sizeof(float);
-        GL.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, stride, 0);
-        GL.EnableVertexAttribArray(0);
-        GL.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, stride, 2 * sizeof(float));
-        GL.EnableVertexAttribArray(1);
     }
 
     public void Dispose()
@@ -212,10 +139,7 @@ public class MenuScene : IDisposable
         {
             texture.Dispose();
         }
-        GL.DeleteBuffer(_backgroundVbo);
-        GL.DeleteVertexArray(_backgroundVao);
-        GL.DeleteBuffer(_spriteVbo);
-        GL.DeleteBuffer(_spriteEbo);
-        GL.DeleteVertexArray(_spriteVao);
+        _backgroundQuad.Dispose();
+        _spriteQuad.Dispose();
     }
 }

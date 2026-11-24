@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using System.Numerics;
+﻿using System.Numerics;
 using DispatchCity.Simulation;
 
 namespace DispatchCity.Rendering;
@@ -23,8 +22,6 @@ public class PostEffects : IDisposable
     private const float GlowRadiusInUnits = 3f;
 
     private readonly GameWorld _world;
-    private readonly Stopwatch _clock = Stopwatch.StartNew();
-    private double _previousSeconds;
     private float _vignetteImpulse;
 
     public float Gray { get; private set; }
@@ -55,9 +52,7 @@ public class PostEffects : IDisposable
 
     public void Update()
     {
-        double now = _clock.Elapsed.TotalSeconds;
-        float delta = (float)Math.Min(now - _previousSeconds, 0.1);
-        _previousSeconds = now;
+        float delta = RealTime.Delta;
 
         float grayTarget = _world.IsPaused ? 1f : 0f;
         Gray = MoveToward(Gray, grayTarget, delta / GrayFadeSeconds);
