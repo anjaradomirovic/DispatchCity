@@ -17,6 +17,11 @@ public class Game : GameWindow
     private ImGuiController? _imgui;
     private int _referenceHeight;
 
+    // Uvodni ekran se prikazuje dok igrac ne klikne START GAME; svet do tada miruje.
+    private readonly MenuScene _menu = new MenuScene();
+    private readonly MenuPanel _menuPanel = new MenuPanel();
+    private bool _inMenu = true;
+
     public Game(GameWindowSettings gameSettings, NativeWindowSettings nativeSettings, GameWorld world)
         : base(gameSettings, nativeSettings)
     {
@@ -36,6 +41,7 @@ public class Game : GameWindow
         _renderer = new Renderer(_world, mapWidth, ClientSize.Y);
         _renderer.Initialize();
 
+        _menu.Initialize();
         _imgui = new ImGuiController(ClientSize.X, ClientSize.Y);
 
         // Početna visina prozora je mera: panel je veći onoliko koliko je prozor veći od nje.
@@ -60,6 +66,11 @@ public class Game : GameWindow
     protected override void OnUpdateFrame(FrameEventArgs e)
     {
         base.OnUpdateFrame(e);
+        if (_inMenu)
+        {
+            return;
+        }
+
         HandleCameraKeys((float)e.Time);
         _world.Update((float)e.Time);
     }
@@ -68,6 +79,13 @@ public class Game : GameWindow
     protected override void OnRenderFrame(FrameEventArgs e)
     {
         base.OnRenderFrame(e);
+
+        if (_inMenu)
+        {
+            RenderMenu(e);
+            return;
+        }
+
         _renderer?.Render();
 
         if (_imgui != null && _renderer != null)
@@ -75,6 +93,24 @@ public class Game : GameWindow
             int panelWidth = PanelWidth(ClientSize.X);
             _imgui.Update(this, (float)e.Time);
             _panel.Draw(_world, _renderer.Options, ClientSize.X - panelWidth, panelWidth, ClientSize.Y);
+            _imgui.Render();
+        }
+
+        SwapBuffers();
+    }
+
+    // Uvodni ekran preko celog prozora; klik na dugme pokrece igru.
+    private void RenderMenu(FrameEventArgs e)
+    {
+        _menu.Render(ClientSize.X, ClientSize.Y);
+
+        if (_imgui != null)
+        {
+            _imgui.Update(this, (float)e.Time);
+            if (_menuPanel.Draw(ClientSize.X, ClientSize.Y))
+            {
+                _inMenu = false;
+            }
             _imgui.Render();
         }
 
@@ -93,6 +129,19 @@ public class Game : GameWindow
     protected override void OnKeyDown(KeyboardKeyEventArgs e)
     {
         base.OnKeyDown(e);
+
+        if (_inMenu)
+        {
+            if (e.Key == Keys.Enter || e.Key == Keys.Space)
+            {
+                _inMenu = false;
+            }
+            else if (e.Key == Keys.Escape)
+            {
+                Close();
+            }
+            return;
+        }
 
         switch (e.Key)
         {
@@ -130,7 +179,7 @@ public class Game : GameWindow
     protected override void OnMouseMove(MouseMoveEventArgs e)
     {
         base.OnMouseMove(e);
-        if (_renderer != null && _imgui != null && !_imgui.WantsMouse
+        if (!_inMenu && _renderer != null && _imgui != null && !_imgui.WantsMouse
             && MouseState.IsButtonDown(MouseButton.Left))
         {
             _renderer.Camera.Pan(new System.Numerics.Vector2(e.Delta.X, e.Delta.Y));
@@ -143,7 +192,7 @@ public class Game : GameWindow
         base.OnMouseWheel(e);
         _imgui?.AddMouseWheel(e.OffsetY);
 
-        if (_renderer != null && _imgui != null && !_imgui.WantsMouse)
+        if (!_inMenu && _renderer != null && _imgui != null && !_imgui.WantsMouse)
         {
             var cursor = new System.Numerics.Vector2(MousePosition.X, MousePosition.Y);
             _renderer.Camera.ZoomAt(cursor, MathF.Pow(1.1f, e.OffsetY));
@@ -152,6 +201,7 @@ public class Game : GameWindow
 
     protected override void OnUnload()
     {
+        _menu.Dispose();
         _imgui?.Dispose();
         _renderer?.Dispose();
         base.OnUnload();

@@ -87,6 +87,22 @@ public static class Palette
         get { return FromHex(0xFFFFFF); }
     }
 
+    // Zatvorena ulica.
+    public static Vector3 ClosedRoad
+    {
+        get { return FromHex(0x9E3B33); }
+    }
+
+    // Uvodni ekran.
+    public static Vector3 MenuSkyTop { get { return FromHex(0x6FB1E6); } }
+    public static Vector3 MenuSkyBottom { get { return FromHex(0xD6EEFA); } }
+    public static Vector3 MenuGrassFar { get { return FromHex(0x9ED36B); } }
+    public static Vector3 MenuGrassNear { get { return FromHex(0x5FA844); } }
+    public static Vector3 MenuCloud { get { return FromHex(0xFFFFFF); } }
+    public static Vector3 MenuTrack { get { return FromHex(0x8A5A3C); } }
+    public static Vector3 MenuTrackEdge { get { return FromHex(0x4A2E1C); } }
+    public static Vector3 MenuPlate { get { return FromHex(0x6D1A2E); } }
+
     // Tamna ivica oko ulica, da se jasno vide na pozadini.
     public static Vector3 RoadBorder
     {
